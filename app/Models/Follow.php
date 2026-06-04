@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Guarded;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+
+#[Guarded([""])]
+class Follow extends Model
+{
+    public $timestamps = false;
+    protected $keyType = 'string';
+    public $incrementing = false;
+
+        protected static function boot()
+        {
+            parent::boot();
+    
+            static::creating(function ($follow) {
+                if (!$follow->id) {
+                    $follow->id = (string) Str::uuid();
+                }
+            });
+        }
+}
