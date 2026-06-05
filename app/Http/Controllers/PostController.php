@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Post;
+use App\Models\PostEditHistory;
 use App\Models\PostTag;
 use App\Models\Tag;
 use Illuminate\Http\Request;
@@ -94,21 +95,40 @@ class PostController extends Controller
     {
 
         $user = Auth::user();
+
+
+
         $request->validate([
             'title' => 'required|string|max:255',
             'body' => 'required|string',
+            "reason" => 'required|string',
             'category_slug' => 'required|exists:categories,slug',
             'tags' => 'array',
             'tags.*' => 'exists:tags,slug',
         ]);
 
         $post = Post::where('id', $id)->first();
+        $bodyBefore = $post?->body;
+
         if (!$post) {
             return response()->json(['message' => 'post not found'], 404);
         }
 
-        if ($post->user_id !== $user->id) {
-            return response()->json(['message' => 'you are not the owner of this post'], 403);
+        $isOwner = $post->user_id === $user->id;
+        $isAdmin = $user->roles()->where('name', 'admin')->exists();
+        $isModerator = $user->roles()->where('name', 'moderator')->exists();
+
+        if (!$isOwner && !$isAdmin && !$isModerator) {
+            return response()->json(['message' => 'you cannot update this post'], 403);
+        }
+
+
+        $editCount = PostEditHistory::where('post_id', $post->id)->count();
+
+        if ($editCount >= 3) {
+            return response()->json([
+                'message' => 'This post has reached the maximum edit limit (3 times)'
+            ], 403);
         }
 
         $category = Category::where('slug', $request->category_slug)->first();
@@ -134,41 +154,55 @@ class PostController extends Controller
             }
         }
 
+        $postEditHistory = PostEditHistory::create([
+            'post_id' => $post->id,
+            'edited_by' => $user->id,
+            'reason' => $request->reason,
+            "body_before" => $bodyBefore,
+            "body_after" => $post->body,
+        ]);
+
+
+
+
         return response()->json([
             'message' => 'post updated successfully',
-            'data' => $post->fresh()->load('tags', 'category')
+            'data' => $post->fresh()->load('tags', 'category'),
+            "edit_history" => $postEditHistory
         ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
- public function destroy(string $id)
-{
-    $user = Auth::user();
+    public function destroy(string $id)
+    {
+        $user = Auth::user();
 
-    $post = Post::find($id);
 
-    if (!$post) {
+
+        $post = Post::find($id);
+
+        if (!$post) {
+            return response()->json([
+                'message' => 'Post not found'
+            ], 404);
+        }
+
+        $isOwner = $post->user_id === $user->id;
+        $isAdmin = $user->roles()->where('name', 'admin')->exists();
+        $isModerator = $user->roles()->where('name', 'moderator')->exists();
+
+        if (!$isOwner && !$isAdmin && !$isModerator) {
+            return response()->json([
+                'message' => 'You do not have permission to delete this post'
+            ], 403);
+        }
+
+        $post->delete();
+
         return response()->json([
-            'message' => 'Post not found'
-        ], 404);
+            'message' => 'Post deleted successfully'
+        ]);
     }
-
-    $isOwner = $post->user_id === $user->id;
-    $isAdmin = $user->roles()->where('name', 'admin')->exists();
-    $isModerator = $user->roles()->where('name', 'moderator')->exists();
-
-    if (!$isOwner && !$isAdmin && !$isModerator) {
-        return response()->json([
-            'message' => 'You do not have permission to delete this post'
-        ], 403);
-    }
-
-    $post->delete();
-
-    return response()->json([
-        'message' => 'Post deleted successfully'
-    ]);
-}
 }
