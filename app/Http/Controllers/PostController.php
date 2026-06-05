@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Models\PostEditHistory;
 use App\Models\PostTag;
 use App\Models\Tag;
+use App\Models\Vote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,11 +16,126 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        $posts = Post::with(['tags', 'category', 'user'])->orderBy('created_at', 'desc')->paginate(10);
-        return response()->json($posts);
+public function index(Request $request)
+{
+    $query = Post::with(['tags', 'category', 'user'])
+        ->withCount([
+            'likes', 
+            'bookmarks', 
+            'comments',
+            // Hitung upvote dan downvote terpisah
+            'votes as upvotes_count' => function($q) {
+                $q->where('vote_type', 'upvote');
+            },
+            'votes as downvotes_count' => function($q) {
+                $q->where('vote_type', 'downvote');
+            }
+        ]);
+    
+    // Search by title, body, or id
+    if ($request->has('search') && !empty($request->search)) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('title', 'LIKE', "%{$search}%")
+              ->orWhere('body', 'LIKE', "%{$search}%")
+              ->orWhere('id', 'LIKE', "%{$search}%");
+        });
     }
+    
+    // Filter by category slug (single)
+    if ($request->has('category_slug') && !empty($request->category_slug)) {
+        $query->whereHas('category', function($q) use ($request) {
+            $q->where('slug', $request->category_slug);
+        });
+    }
+    
+    // Filter by multiple category slugs
+    if ($request->has('category_slugs') && is_array($request->category_slugs)) {
+        $query->whereHas('category', function($q) use ($request) {
+            $q->whereIn('slug', $request->category_slugs);
+        });
+    }
+    
+    // Optional: Sort by different fields (termasuk vote counts)
+    $sortBy = $request->get('sort_by', 'created_at');
+    $sortOrder = $request->get('sort_order', 'desc');
+    
+    // Validasi field yang boleh di-sort untuk keamanan
+    $allowedSortFields = [
+        'created_at', 
+        'title', 
+        'updated_at', 
+        'votes_count',          // total votes (upvote - downvote)
+        'likes_count',          // total likes
+        'bookmarks_count',      // total bookmarks
+        'comments_count'        // total comments
+    ];
+    
+    // Eksekusi query terlebih dahulu
+    $posts = $query->paginate($request->get('per_page', 10));
+    
+    // Tambahkan votes_count ke setiap post (upvotes_count - downvotes_count)
+    $posts->getCollection()->transform(function($post) {
+        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        return $post;
+    });
+    
+    // Jika sorting berdasarkan votes_count, lakukan sorting manual
+    if ($sortBy === 'votes_count') {
+        $collection = $posts->getCollection();
+        $sorted = $sortOrder === 'asc' 
+            ? $collection->sortBy('votes_count')
+            : $collection->sortByDesc('votes_count');
+        $posts->setCollection($sorted->values());
+    }
+    // Jika sorting berdasarkan field lain yang sudah ada di database
+    else if (in_array($sortBy, ['created_at', 'title', 'updated_at', 'likes_count', 'bookmarks_count', 'comments_count'])) {
+        // Re-order query dengan sorting yang benar
+        $query = Post::with(['tags', 'category', 'user'])
+            ->withCount([
+                'likes', 
+                'bookmarks', 
+                'comments',
+                'votes as upvotes_count' => function($q) {
+                    $q->where('vote_type', 'upvote');
+                },
+                'votes as downvotes_count' => function($q) {
+                    $q->where('vote_type', 'downvote');
+                }
+            ]);
+        
+        // Apply search dan filter lagi
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'LIKE', "%{$search}%")
+                  ->orWhere('body', 'LIKE', "%{$search}%")
+                  ->orWhere('id', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        // Filter by category slug
+        if ($request->has('category_slug') && !empty($request->category_slug)) {
+            $query->whereHas('category', function($q) use ($request) {
+                $q->where('slug', $request->category_slug);
+            });
+        }
+        
+        // Filter by multiple category slugs
+        if ($request->has('category_slugs') && is_array($request->category_slugs)) {
+            $query->whereHas('category', function($q) use ($request) {
+                $q->whereIn('slug', $request->category_slugs);
+            });
+        }
+        
+        $query->orderBy($sortBy, $sortOrder);
+        $posts = $query->paginate($request->get('per_page', 10));
+        
+      
+    }
+    
+    return response()->json($posts);
+}
 
     /**
      * Show the form for creating a new resource.
@@ -75,10 +191,108 @@ class PostController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
-    {
-        //
+ public function show($id)
+{
+    $post = Post::with([
+        'tags', 
+        'category', 
+        'user',
+        'comments' => function($q) {
+            $q->with(['user', 'votes', 'replies'])->orderBy('created_at', 'desc');
+        },
+        'comments.user',
+        'comments.votes',
+        'comments.replies.user',
+        'comments.replies.votes'
+    ])
+    ->withCount([
+        'likes', 
+        'bookmarks', 
+        'comments',
+        'votes as upvotes_count' => function($q) {
+            $q->where('vote_type', 'upvote');
+        },
+        'votes as downvotes_count' => function($q) {
+            $q->where('vote_type', 'downvote');
+        },
+        // Hitung juga untuk comments
+        'comments as comments_upvotes_count' => function($q) {
+            $q->whereHas('votes', function($sub) {
+                $sub->where('vote_type', 'upvote');
+            });
+        },
+        'comments as comments_downvotes_count' => function($q) {
+            $q->whereHas('votes', function($sub) {
+                $sub->where('vote_type', 'downvote');
+            });
+        }
+    ])
+    ->findOrFail($id);
+    
+    
+    
+    // Format comments dengan vote counts
+    $post->comments->transform(function($comment) {
+        $comment->votes_count = $comment->votes->sum(function($vote) {
+            return $vote->vote_type === 'upvote' ? 1 : -1;
+        });
+        
+        // Format replies jika ada
+        if ($comment->replies) {
+            $comment->replies->transform(function($reply) {
+                $reply->votes_count = $reply->votes->sum(function($vote) {
+                    return $vote->vote_type === 'upvote' ? 1 : -1;
+                });
+                return $reply;
+            });
+        }
+        
+        return $comment;
+    });
+    
+    // Cek interaksi user saat ini (jika login)
+    if (auth()->check()) {
+        $user = auth()->user();
+        
+        // Status vote user pada post
+        $userPostVote = Vote::where('user_id', $user->id)
+            ->where('target_id', $post->id)
+            ->where('target_type', 'post')
+            ->first();
+        $post->user_vote_type = $userPostVote ? $userPostVote->vote_type : null;
+        
+        // Status like user pada post
+        $post->user_has_liked = $post->likes()->where('user_id', $user->id)->exists();
+        
+        // Status bookmark user pada post
+        $post->user_has_bookmarked = $post->bookmarks()->where('user_id', $user->id)->exists();
+        
+        // Status vote user pada setiap comment
+        foreach ($post->comments as $comment) {
+            $userCommentVote = Vote::where('user_id', $user->id)
+                ->where('target_id', $comment->id)
+                ->where('target_type', 'comment')
+                ->first();
+            $comment->user_vote_type = $userCommentVote ? $userCommentVote->vote_type : null;
+            
+            // Untuk replies
+            if ($comment->replies) {
+                foreach ($comment->replies as $reply) {
+                    $userReplyVote = Vote::where('user_id', $user->id)
+                        ->where('target_id', $reply->id)
+                        ->where('target_type', 'comment')
+                        ->first();
+                    $reply->user_vote_type = $userReplyVote ? $userReplyVote->vote_type : null;
+                }
+            }
+        }
     }
+    
+    return response()->json([
+        'status' => 'success',
+        'data' => $post
+    ]);
+}
 
     /**
      * Show the form for editing the specified resource.
@@ -116,9 +330,8 @@ class PostController extends Controller
 
         $isOwner = $post->user_id === $user->id;
         $isAdmin = $user->roles()->where('name', 'admin')->exists();
-        $isModerator = $user->roles()->where('name', 'moderator')->exists();
 
-        if (!$isOwner && !$isAdmin && !$isModerator) {
+        if (!$isOwner && !$isAdmin) {
             return response()->json(['message' => 'you cannot update this post'], 403);
         }
 

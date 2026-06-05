@@ -28,6 +28,10 @@ class Comment extends Model
         return $this->hasMany(Comment::class, "parent_id");
     }
 
+    public function votes() {
+        return $this->hasMany(Vote::class, "target_id");
+    }
+
     protected static function boot()
     {
         parent::boot();

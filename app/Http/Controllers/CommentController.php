@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Comment;
+use App\Models\CommentEditHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -75,26 +76,47 @@ class CommentController extends Controller
     ]);
 
     $comment = Comment::where('id', $id)->first();
+    $bodyBefore = $comment?->body;
     if (!$comment) {
         return response()->json([
             'message' => 'Comment not found'
         ], 404);
     }
 
-    //  hanya pemilik komentar yang bisa edit
-    if ($comment->user_id !== $user->id) {
-        return response()->json([
-            'message' => 'cannot edit others user comments'
-        ], 403);
-    }
+    
+      $isOwner = $comment->user_id === $user->id;
+        $isAdmin = $user->roles()->where('name', 'admin')->exists();
+        if (!$isOwner && !$isAdmin) {
+            return response()->json(['message' => 'you cannot update this comment'], 403);
+        }
+
+ $editCount = CommentEditHistory::where('comment_id', $comment->id)->count();
+
+        if ($editCount >= 3) {
+            return response()->json([
+                'message' => 'This comment has reached the maximum edit limit (3 times)'
+            ], 403);
+        }
 
     $comment->update([
         'body' => $request->body,
     ]);
 
+  $commentEditHistory = CommentEditHistory::create([
+        'comment_id' => $comment->id,
+        'edited_by' => $user->id,
+        "body_before" => $bodyBefore,
+        "body_after" => $comment->body,
+        'edited_at' => now(),
+    ]);
+
+
+    
+
     return response()->json([
         'message' => 'Comment updated successfully',
-        'data' => $comment->fresh()
+        'data' => $comment->fresh(),
+        "edit_history" => $commentEditHistory
     ]);
 }
 
@@ -103,8 +125,6 @@ class CommentController extends Controller
      */
     public function destroy(string $id)
     {
-       
-
         $comment = Comment::where('id', $id)->first();
         if (!$comment) {
             return response()->json([

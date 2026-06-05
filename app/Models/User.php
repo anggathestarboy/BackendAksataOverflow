@@ -69,6 +69,7 @@ public function following()
 
 
 
+
     protected static function boot()
     {
         parent::boot();

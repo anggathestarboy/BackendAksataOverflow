@@ -35,6 +35,21 @@ class Post extends Model
         return $this->hasMany(Comment::class, "post_id");
     }
 
+
+    public function likes() {
+        return $this->hasMany(Like::class, "target_id");
+    }
+    
+    public function votes()
+    {
+        return $this->hasMany(Vote::class, "target_id");
+    }
+
+    public function bookmarks()
+    {
+        return $this->hasMany(Bookmark::class, "post_id");
+    }
+
     protected static function boot()
     {
         parent::boot();

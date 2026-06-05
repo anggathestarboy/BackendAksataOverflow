@@ -8,6 +8,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\VoteController;
 use App\Http\Middleware\IsAdminMiddleware;
 use App\Http\Middleware\IsModeratorMiddleware;
 use Illuminate\Http\Request;
@@ -26,13 +27,16 @@ Route::middleware('auth:api')->group(function () {
     Route::post(("/follow"), [FollowController::class, 'follow']);
     Route::delete(("/unfollow"), [FollowController::class, 'unfollow']);
 
-    Route::apiResource("/categories", CategoryController::class);
-    Route::apiResource("/tags", TagController::class);
+    Route::apiResource("/categories", CategoryController::class)->except(['destroy']);
+    Route::apiResource("/tags", TagController::class)->except(['destroy']);
     Route::apiResource("/posts", PostController::class);
     Route::apiResource('/comments', CommentController::class)->except(['destroy']);
     Route::post("/likes", [LikeController::class, 'store']);
     Route::delete("/unlikes", [LikeController::class, 'unlike']);
     Route::apiResource("/bookmarks", BookmarkController::class);
+    Route::post("/votes", [VoteController::class, 'vote']);
+    Route::post("/downvotes", [VoteController::class, 'downVote']);
+
 
     Route::middleware(IsAdminMiddleware::class)->group(function () {
         Route::prefix('/admin')->group(function () {
@@ -46,9 +50,12 @@ Route::middleware('auth:api')->group(function () {
     Route::middleware([IsModeratorMiddleware::class])->group(function () {
             Route::delete('/posts/{id}', [PostController::class, 'destroy']);
             Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
+            Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+            Route::delete('/tags/{id}', [TagController::class, 'destroy']);
     });
 });
 
 Route::get("/posts", [PostController::class, 'index']);
+Route::get("/posts/{id}", [PostController::class, 'show']);
 Route::get("/followers/{username}", [FollowController::class, 'followers']);
 Route::get("/followings/{username}", [FollowController::class, 'following']);
