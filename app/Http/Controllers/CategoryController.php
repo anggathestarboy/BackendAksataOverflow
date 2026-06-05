@@ -78,6 +78,8 @@ class CategoryController extends Controller
         ]);
 
 
+        
+
         $parentId = Category::where("name", $request->parent_id)->first()?->id;
 
       

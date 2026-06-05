@@ -143,17 +143,32 @@ class PostController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
-    {
-        $user = Auth::user();
-        $post = Post::where('id', $id)->first();
-        if (!$post) {
-            return response()->json(['message' => 'post not found'], 404);
-        }
-        if ($post->user_id !== $user->id) {
-            return response()->json(['message' => 'you are not the owner of this post'], 403);
-        }
-        $post->delete();
-        return response()->json(['message' => 'post deleted successfully']);
+ public function destroy(string $id)
+{
+    $user = Auth::user();
+
+    $post = Post::find($id);
+
+    if (!$post) {
+        return response()->json([
+            'message' => 'Post not found'
+        ], 404);
     }
+
+    $isOwner = $post->user_id === $user->id;
+    $isAdmin = $user->roles()->where('name', 'admin')->exists();
+    $isModerator = $user->roles()->where('name', 'moderator')->exists();
+
+    if (!$isOwner && !$isAdmin && !$isModerator) {
+        return response()->json([
+            'message' => 'You do not have permission to delete this post'
+        ], 403);
+    }
+
+    $post->delete();
+
+    return response()->json([
+        'message' => 'Post deleted successfully'
+    ]);
+}
 }

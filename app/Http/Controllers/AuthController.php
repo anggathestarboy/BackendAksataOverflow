@@ -81,8 +81,107 @@ class AuthController extends Controller
             'is_banned' => $user->is_banned,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
-            'role' => $user->roles->first()?->name,
+            'role' => $user->roles,
         ]);
+    }
+
+    public function jadikanModerator($username)
+    {
+
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $moderatorRole = Role::where('name', 'moderator')->first();
+        if (!$moderatorRole) {
+            return response()->json(['message' => 'Moderator role not found'], 404);
+        }
+
+        if (UserRole::where('user_id', $user->id)->where('role_id', $moderatorRole->id)->exists()) {
+            return response()->json(['message' => 'User is already a moderator'], 400);
+        }
+
+        if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            $query->where('name', 'admin');
+        })->exists()) {
+            return response()->json(['message' => 'User is already an admin, cannot be promoted to moderator'], 400);
+        }
+
+        UserRole::create([
+            'user_id' => $user->id,
+            'role_id' => $moderatorRole->id,
+        ]);
+
+        return response()->json(['message' => 'User has been promoted to moderator']);
+    }
+
+
+    public function jadikanAdmin ($username)
+    {
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $adminRole = Role::where('name', 'admin')->first();
+
+        if (!$adminRole) {
+            return response()->json(['message' => 'Admin role not found'], 404);
+        }
+
+        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            $query->where('name', 'moderator');
+        })->exists()) {
+           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+                $query->where('name', 'moderator');
+            })->delete();
+        }
+
+
+        if (UserRole::where('user_id', $user->id)->where('role_id', $adminRole->id)->exists()) {
+            return response()->json(['message' => 'User is already an admin'], 400);
+        }
+
+        UserRole::create([
+            'user_id' => $user->id,
+            'role_id' => $adminRole->id,
+        ]);
+
+        return response()->json(['message' => 'User has been promoted to admin']);
+    }
+
+
+    public function turunkanJabatan($username) {
+        $user = User::where('username', $username)->first();
+
+        if($user && !UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            $query->whereIn('name', ['admin', 'moderator']);
+        })->exists()) {
+            return response()->json(['message' => 'User is already a regular user'], 400);
+        }
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            $query->where('name', 'admin');
+        })->exists()) {
+           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+                $query->where('name', 'admin');
+            })->delete();
+        }
+
+        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            $query->where('name', 'moderator');
+        })->exists()) {
+           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+                $query->where('name', 'moderator');
+            })->delete();
+        }
+
+        return response()->json(['message' => 'Your role has been downgraded to user']);
     }
 
 

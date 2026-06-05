@@ -84,7 +84,7 @@ class CommentController extends Controller
     //  hanya pemilik komentar yang bisa edit
     if ($comment->user_id !== $user->id) {
         return response()->json([
-            'message' => 'cannot edit others comments'
+            'message' => 'cannot edit others user comments'
         ], 403);
     }
 
@@ -103,6 +103,22 @@ class CommentController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+       
+
+        $comment = Comment::where('id', $id)->first();
+        if (!$comment) {
+            return response()->json([
+                'message' => 'Comment not found'
+            ], 404);
+        }
+
+       
+     
+
+        $comment->delete();
+
+        return response()->json([
+            'message' => 'Comment deleted successfully'
+        ]);
     }
 }
