@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\ReputationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Services\MentionService;
@@ -122,6 +123,41 @@ class AuthController extends Controller
         $users = User::all();
         return response()->json([
             'users' => $users,
+        ]);
+    }
+
+    /**
+     * GET /users/{username}/level
+     * Public endpoint — returns level info and progress for any user.
+     */
+    public function getLevelInfo(string $username)
+    {
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $pts  = $user->reputation_points; // allow negative
+        $level = ReputationService::calculateLevel($pts);
+
+        // For progress calculation, level 1 floor is always 0 (even if pts < 0)
+        $currentFloor    = max(0, ($level - 1) * 10);
+        $nextFloor       = $level * 10;
+        $progressInLevel = max(0, $pts - $currentFloor);
+        $pointsToNext    = $nextFloor - $pts;
+
+        return response()->json([
+            'status'            => 'success',
+            'username'          => $user->username,
+            'reputation_points' => $pts,
+            'level'             => $level,
+            'progress'          => [
+                'current_level_floor'   => $currentFloor,
+                'next_level_floor'      => $nextFloor,
+                'points_in_this_level'  => $progressInLevel,
+                'points_to_next_level'  => $pointsToNext,
+                'percent'               => round(($progressInLevel / 10) * 100, 1),
+            ],
         ]);
     }
 

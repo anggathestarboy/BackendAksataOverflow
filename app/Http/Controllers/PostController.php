@@ -13,6 +13,7 @@ use App\Models\Vote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Services\MentionService;
+use App\Services\ReputationService;
 
 class PostController extends Controller
 {
@@ -143,6 +144,15 @@ public function index(Request $request)
 
         // Handle @mentions in post body
         MentionService::handleMentions($request->body, auth()->id(), 'mention', $post->id, 'post');
+
+        // +1 reputation for creating a post
+        ReputationService::award(
+            auth()->id(),
+            ReputationService::POINTS_POST_CREATED,
+            ReputationService::ACTION_POST_CREATED,
+            $post->id,
+            'Created a new post'
+        );
 
         return response()->json([
             "message" => "post created successfully",
@@ -468,6 +478,15 @@ public function index(Request $request)
             'reference_id' => $comment->id,
             'reference_type' => 'comment',
         ]);
+
+        // +5 reputation to the author of the accepted answer
+        ReputationService::award(
+            $comment->user_id,
+            ReputationService::POINTS_ANSWER_ACCEPTED,
+            ReputationService::ACTION_ANSWER_ACCEPTED,
+            $comment->id,
+            'Answer accepted on post: ' . $post->title
+        );
 
         return response()->json([
             'message' => 'Answer accepted successfully.',

@@ -6,6 +6,7 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\ReputationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -103,7 +104,6 @@ class ReportController extends Controller
 
     public function resolveReport(Request $request, $id)
     {
-
         $request->validate([
             "status" => "required|in:resolved,dismissed,reviewed,pending"
         ]);
@@ -114,14 +114,43 @@ class ReportController extends Controller
                 "message" => "Report not found"
             ], 404);
         }
-    $report->update([
-        "status" => $request->status,
-        "resolved_by" => $request->user()->id,
-        "resolved_at" => now(),
-    ]);
+
+        $wasAlreadyResolved = $report->status === 'resolved';
+
+        $report->update([
+            "status"      => $request->status,
+            "resolved_by" => $request->user()->id,
+            "resolved_at" => now(),
+        ]);
+
+        // Deduct -6 reputation from the reported content owner — only the first time it's resolved
+        if ($request->status === 'resolved' && !$wasAlreadyResolved) {
+            $ownerId = null;
+
+            if ($report->target_type === 'post') {
+                $post = Post::find($report->target_id);
+                $ownerId = $post?->user_id;
+            } elseif ($report->target_type === 'comment') {
+                $comment = Comment::find($report->target_id);
+                $ownerId = $comment?->user_id;
+            } elseif ($report->target_type === 'user') {
+                $ownerId = $report->target_id;
+            }
+
+            if ($ownerId && $ownerId !== $request->user()->id) {
+                ReputationService::deduct(
+                    $ownerId,
+                    ReputationService::POINTS_REPORT_RESOLVED,
+                    ReputationService::ACTION_REPORT_RESOLVED,
+                    $report->id,
+                    'Content reported and resolved by moderator (-' . ReputationService::POINTS_REPORT_RESOLVED . ' pts)'
+                );
+            }
+        }
+
         return response()->json([
             "message" => "Report resolved successfully",
-            "data" => $report
+            "data"    => $report
         ]);
     }
 }

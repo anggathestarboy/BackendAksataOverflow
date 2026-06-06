@@ -7,6 +7,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PointsLogController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TagController;
@@ -55,6 +56,9 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
+    // Reputation / Points Log routes
+    Route::get('/points-logs', [PointsLogController::class, 'index']);
+
 
     Route::middleware(IsAdminMiddleware::class)->group(function () {
         Route::prefix('/admin')->group(function () {
@@ -82,3 +86,5 @@ Route::get("/posts", [PostController::class, 'index']);
 Route::get("/posts/{id}", [PostController::class, 'show']);
 Route::get("/followers/{username}", [FollowController::class, 'followers']);
 Route::get("/followings/{username}", [FollowController::class, 'following']);
+Route::get("/points-logs/{username}", [PointsLogController::class, 'byUser']);
+Route::get("/users/{username}/level", [AuthController::class, 'getLevelInfo']);
