@@ -38,7 +38,14 @@ class CategoryController extends Controller
 
         $parentId = Category::where("name", $request->parent_id)->first()?->id;
 
+
+
+
         $slug = str()->slug($request->name);
+
+        if (Category::where('slug', $slug)->exists()) {
+            return response()->json(['message' => 'Category with the same name already exists'], 409);
+        }
 
         $category = Category::create([
             'name' => $request->name,

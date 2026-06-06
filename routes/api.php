@@ -27,7 +27,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post(("/follow"), [FollowController::class, 'follow']);
     Route::delete(("/unfollow"), [FollowController::class, 'unfollow']);
 
-    Route::apiResource("/categories", CategoryController::class)->except(['destroy']);
+    Route::apiResource("/categories", CategoryController::class)->except(['destroy', 'update', 'store']);
     Route::apiResource("/tags", TagController::class)->except(['destroy']);
     Route::apiResource("/posts", PostController::class);
     Route::apiResource('/comments', CommentController::class)->except(['destroy']);
@@ -43,6 +43,7 @@ Route::middleware('auth:api')->group(function () {
             Route::post('/promote-moderator/{username}', [AuthController::class, 'jadikanModerator']);
             Route::post('/promote-admin/{username}', [AuthController::class, 'jadikanAdmin']);
             Route::post('/turunkan/{username}', [AuthController::class, 'turunkanJabatan']);
+            
         });
     });
 
@@ -52,6 +53,11 @@ Route::middleware('auth:api')->group(function () {
             Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
             Route::delete('/tags/{id}', [TagController::class, 'destroy']);
+            Route::post('/categories', [CategoryController::class, 'store']);
+            Route::put('/categories/{slug}', [CategoryController::class, 'update']);
+           Route::delete('categories/{slug}', [CategoryController::class, 'destroy']);
+            
+            
     });
 });
 

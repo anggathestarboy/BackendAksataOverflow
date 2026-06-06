@@ -18,22 +18,31 @@ class PostController extends Controller
      */
 public function index(Request $request)
 {
+    $sortBy = $request->get('sort_by', 'created_at');
+    $sortOrder = $request->get('sort_order', 'desc');
+
+    $allowedSortFields = [
+        'created_at', 'title', 'updated_at',
+        'votes_count', 'likes_count', 'bookmarks_count', 'comments_count'
+    ];
+
+    // Validasi sort field
+    if (!in_array($sortBy, $allowedSortFields)) {
+        $sortBy = 'created_at';
+    }
+
+    // ✅ Bangun query sekali saja
     $query = Post::with(['tags', 'category', 'user'])
         ->withCount([
-            'likes', 
-            'bookmarks', 
+            'likes',
+            'bookmarks',
             'comments',
-            // Hitung upvote dan downvote terpisah
-            'votes as upvotes_count' => function($q) {
-                $q->where('vote_type', 'upvote');
-            },
-            'votes as downvotes_count' => function($q) {
-                $q->where('vote_type', 'downvote');
-            }
+            'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
+            'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
         ]);
-    
-    // Search by title, body, or id
-    if ($request->has('search') && !empty($request->search)) {
+
+    // Search
+    if ($request->filled('search')) {
         $search = $request->search;
         $query->where(function($q) use ($search) {
             $q->where('title', 'LIKE', "%{$search}%")
@@ -41,99 +50,45 @@ public function index(Request $request)
               ->orWhere('id', 'LIKE', "%{$search}%");
         });
     }
-    
-    // Filter by category slug (single)
-    if ($request->has('category_slug') && !empty($request->category_slug)) {
-        $query->whereHas('category', function($q) use ($request) {
-            $q->where('slug', $request->category_slug);
-        });
+
+    // Filter category slug (single)
+    if ($request->filled('category_slug')) {
+        $query->whereHas('category', fn($q) => $q->where('slug', $request->category_slug));
     }
-    
-    // Filter by multiple category slugs
+
+    // Filter category slugs (multiple)
     if ($request->has('category_slugs') && is_array($request->category_slugs)) {
-        $query->whereHas('category', function($q) use ($request) {
-            $q->whereIn('slug', $request->category_slugs);
-        });
+        $query->whereHas('category', fn($q) => $q->whereIn('slug', $request->category_slugs));
     }
-    
-    // Optional: Sort by different fields (termasuk vote counts)
-    $sortBy = $request->get('sort_by', 'created_at');
-    $sortOrder = $request->get('sort_order', 'desc');
-    
-    // Validasi field yang boleh di-sort untuk keamanan
-    $allowedSortFields = [
-        'created_at', 
-        'title', 
-        'updated_at', 
-        'votes_count',          // total votes (upvote - downvote)
-        'likes_count',          // total likes
-        'bookmarks_count',      // total bookmarks
-        'comments_count'        // total comments
-    ];
-    
-    // Eksekusi query terlebih dahulu
+
+    // ✅ Sort di DB kalau bukan votes_count
+    if ($sortBy !== 'votes_count') {
+        $query->orderBy($sortBy, $sortOrder);
+    }
+
     $posts = $query->paginate($request->get('per_page', 10));
-    
-    // Tambahkan votes_count ke setiap post (upvotes_count - downvotes_count)
-    $posts->getCollection()->transform(function($post) {
+
+    // ✅ Transform SELALU dijalankan, apapun sort-nya
+    $user = auth()->user();
+    $posts->getCollection()->transform(function($post) use ($user) {
         $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        $post->user_has_liked = $user
+            ? $post->likes()->where('user_id', $user->id)->exists()
+            : false;
+        $post->user_has_bookmarked = $user
+            ? $post->bookmarks()->where('user_id', $user->id)->exists()
+            : false;
         return $post;
     });
-    
-    // Jika sorting berdasarkan votes_count, lakukan sorting manual
+
+    // ✅ Sort manual hanya untuk votes_count (setelah transform)
     if ($sortBy === 'votes_count') {
-        $collection = $posts->getCollection();
-        $sorted = $sortOrder === 'asc' 
-            ? $collection->sortBy('votes_count')
-            : $collection->sortByDesc('votes_count');
+        $sorted = $sortOrder === 'asc'
+            ? $posts->getCollection()->sortBy('votes_count')
+            : $posts->getCollection()->sortByDesc('votes_count');
         $posts->setCollection($sorted->values());
     }
-    // Jika sorting berdasarkan field lain yang sudah ada di database
-    else if (in_array($sortBy, ['created_at', 'title', 'updated_at', 'likes_count', 'bookmarks_count', 'comments_count'])) {
-        // Re-order query dengan sorting yang benar
-        $query = Post::with(['tags', 'category', 'user'])
-            ->withCount([
-                'likes', 
-                'bookmarks', 
-                'comments',
-                'votes as upvotes_count' => function($q) {
-                    $q->where('vote_type', 'upvote');
-                },
-                'votes as downvotes_count' => function($q) {
-                    $q->where('vote_type', 'downvote');
-                }
-            ]);
-        
-        // Apply search dan filter lagi
-        if ($request->has('search') && !empty($request->search)) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('title', 'LIKE', "%{$search}%")
-                  ->orWhere('body', 'LIKE', "%{$search}%")
-                  ->orWhere('id', 'LIKE', "%{$search}%");
-            });
-        }
-        
-        // Filter by category slug
-        if ($request->has('category_slug') && !empty($request->category_slug)) {
-            $query->whereHas('category', function($q) use ($request) {
-                $q->where('slug', $request->category_slug);
-            });
-        }
-        
-        // Filter by multiple category slugs
-        if ($request->has('category_slugs') && is_array($request->category_slugs)) {
-            $query->whereHas('category', function($q) use ($request) {
-                $q->whereIn('slug', $request->category_slugs);
-            });
-        }
-        
-        $query->orderBy($sortBy, $sortOrder);
-        $posts = $query->paginate($request->get('per_page', 10));
-        
-      
-    }
-    
+
     return response()->json($posts);
 }
 
@@ -259,6 +214,7 @@ public function index(Request $request)
             ->where('target_id', $post->id)
             ->where('target_type', 'post')
             ->first();
+        $post->user_has_voted = $userPostVote ? true : false;
         $post->user_vote_type = $userPostVote ? $userPostVote->vote_type : null;
         
         // Status like user pada post
@@ -273,6 +229,7 @@ public function index(Request $request)
                 ->where('target_id', $comment->id)
                 ->where('target_type', 'comment')
                 ->first();
+            $comment->user_has_voted = $userCommentVote ? true : false;
             $comment->user_vote_type = $userCommentVote ? $userCommentVote->vote_type : null;
             
             // Untuk replies
@@ -282,6 +239,7 @@ public function index(Request $request)
                         ->where('target_id', $reply->id)
                         ->where('target_type', 'comment')
                         ->first();
+                    $reply->user_has_voted = $userReplyVote ? true : false;
                     $reply->user_vote_type = $userReplyVote ? $userReplyVote->vote_type : null;
                 }
             }
