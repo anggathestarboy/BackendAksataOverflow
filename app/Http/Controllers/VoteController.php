@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Comment;
+use App\Models\Notification;
 use App\Models\Post;
 use App\Models\Vote;
 use Illuminate\Http\Request;
@@ -92,6 +93,18 @@ class VoteController extends Controller
             // Tambah vote_score pada post (jika target adalah post)
             if ($targetType === 'post') {
                 $post->increment('vote_score');
+            }
+
+            // Kirim notifikasi upvote ke pemilik konten (jika bukan diri sendiri)
+            $ownerId = $targetType === 'post' ? $post->user_id : $comment->user_id;
+            if ($ownerId !== $user->id) {
+                Notification::create([
+                    'user_id' => $ownerId,
+                    'actor_id' => $user->id,
+                    'type' => 'upvote',
+                    'reference_id' => $target->id,
+                    'reference_type' => $targetType,
+                ]);
             }
             
             DB::commit();

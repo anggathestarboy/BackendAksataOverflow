@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Comment;
 use App\Models\Like;
+use App\Models\Notification;
 use App\Models\Post;
 use Illuminate\Http\Request;
 
@@ -48,6 +49,18 @@ class LikeController extends Controller
                 'target_id' => $dataLike,
                 'target_type' => $targetType,
             ]);
+
+            // Kirim notifikasi ke pemilik post (jika bukan diri sendiri)
+            if ($post->user_id !== $user->id) {
+                Notification::create([
+                    'user_id' => $post->user_id,
+                    'actor_id' => $user->id,
+                    'type' => 'like',
+                    'reference_id' => $post->id,
+                    'reference_type' => 'post',
+                ]);
+            }
+
             return response()->json(["message" => "Post liked successfully", "data" => $post]);
         } else if ( $comment = Comment::find($dataLike)) {
             $targetType = 'comment';
@@ -61,6 +74,18 @@ class LikeController extends Controller
                 'target_id' => $dataLike,
                 'target_type' => $targetType,
             ]);
+
+            // Kirim notifikasi ke pemilik comment (jika bukan diri sendiri)
+            if ($comment->user_id !== $user->id) {
+                Notification::create([
+                    'user_id' => $comment->user_id,
+                    'actor_id' => $user->id,
+                    'type' => 'like',
+                    'reference_id' => $comment->id,
+                    'reference_type' => 'comment',
+                ]);
+            }
+
             return response()->json(["message" => "Comment liked successfully", "data" => $comment]);
         } else {
             return response()->json(["message" => "Target not found"], 404);

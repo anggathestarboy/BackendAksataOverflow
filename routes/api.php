@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\VoteController;
@@ -19,6 +20,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::get('/users-all', [AuthController::class, 'getAllUser']);
+
+
 
 Route::middleware('auth:api')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -29,13 +33,20 @@ Route::middleware('auth:api')->group(function () {
 
     Route::apiResource("/categories", CategoryController::class)->except(['destroy', 'update', 'store']);
     Route::apiResource("/tags", TagController::class)->except(['destroy']);
-    Route::apiResource("/posts", PostController::class);
+    Route::apiResource("/posts", PostController::class)->except(['show']);
+    Route::post('/posts/{id}/accept-answer', [PostController::class, 'acceptAnswer']);
     Route::apiResource('/comments', CommentController::class)->except(['destroy']);
     Route::post("/likes", [LikeController::class, 'store']);
     Route::delete("/unlikes", [LikeController::class, 'unlike']);
     Route::apiResource("/bookmarks", BookmarkController::class);
     Route::post("/votes", [VoteController::class, 'vote']);
     Route::post("/downvotes", [VoteController::class, 'downVote']);
+
+    // Notification routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
 
     Route::middleware(IsAdminMiddleware::class)->group(function () {

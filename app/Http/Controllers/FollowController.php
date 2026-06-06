@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Follow;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -27,6 +28,15 @@ class FollowController extends Controller
         $follow = Follow::create([
             'follower_id' => $currentUser->id,
             'following_id' => $userToFollow->id,
+        ]);
+
+        // Kirim notifikasi ke user yang di-follow
+        Notification::create([
+            'user_id' => $userToFollow->id,
+            'actor_id' => $currentUser->id,
+            'type' => 'follow',
+            'reference_id' => null,
+            'reference_type' => null,
         ]);
 
         return response()->json(['message' => 'Followed successfully', 'follow' => $follow], 201);

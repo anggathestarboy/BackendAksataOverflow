@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\MentionService;
 use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
@@ -117,6 +118,14 @@ class AuthController extends Controller
     }
 
 
+    public function getAllUser() {
+        $users = User::all();
+        return response()->json([
+            'users' => $users,
+        ]);
+    }
+
+
     public function jadikanAdmin ($username)
     {
         $user = User::where('username', $username)->first();
@@ -217,8 +226,10 @@ class AuthController extends Controller
 
         $user->update($data);
 
-
-      
+        // Handle @mentions in bio
+        if ($request->filled('bio')) {
+            MentionService::handleMentions($request->bio, $user->id, 'mention', $user->id, 'user');
+        }
 
         return response()->json([
             'message' => 'Profile updated successfully',
