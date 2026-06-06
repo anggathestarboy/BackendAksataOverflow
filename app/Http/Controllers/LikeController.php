@@ -40,6 +40,10 @@ class LikeController extends Controller
         if( $post = Post::find($dataLike) ) {
             $targetType = 'post';
 
+            if ($post->status === 'deleted') {
+                return response()->json(["message" => "Cannot like a deleted post"], 403);
+            }
+
             if (Like::where('user_id', $user->id)->where('target_id', $dataLike)->where('target_type', $targetType)->exists()) {
                 return response()->json(["message" => "You have already liked this post"], 400);
             }
@@ -64,6 +68,12 @@ class LikeController extends Controller
             return response()->json(["message" => "Post liked successfully", "data" => $post]);
         } else if ( $comment = Comment::find($dataLike)) {
             $targetType = 'comment';
+
+            // Check if comment belongs to a deleted post
+            $commentPost = Post::find($comment->post_id);
+            if ($commentPost && $commentPost->status === 'deleted') {
+                return response()->json(["message" => "Cannot like a comment on a deleted post"], 403);
+            }
 
             if (Like::where('user_id', $user->id)->where('target_id', $dataLike)->where('target_type', $targetType)->exists()) {
                 return response()->json(["message" => "You have already liked this comment"], 400);

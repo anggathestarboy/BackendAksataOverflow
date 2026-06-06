@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bookmark;
+use App\Models\Post;
 use Illuminate\Http\Request;
 
 class BookmarkController extends Controller
@@ -12,7 +13,11 @@ class BookmarkController extends Controller
      */
     public function index()
     {
-        $bookmarks = Bookmark::with('post')->where('user_id', auth()->id())->get();
+        $bookmarks = Bookmark::whereHas('post', function ($query) {
+            $query->where('status', '!=', 'deleted');
+        })->with(['post' => function ($query) {
+            $query->where('status', '!=', 'deleted');
+        }])->where('user_id', auth()->id())->get();
         return response()->json(["message" => "Bookmarks retrieved successfully", "data" => $bookmarks]);
     }
 
@@ -33,6 +38,11 @@ class BookmarkController extends Controller
         $request->validate([
             'post_id' => 'required|exists:posts,id',
         ]);
+
+        $post = Post::find($request->post_id);
+        if ($post && $post->status === 'deleted') {
+            return response()->json(["message" => "Cannot bookmark a deleted post"], 403);
+        }
 
         if (Bookmark::where('user_id', $user->id)->where('post_id', $request->post_id)->exists()) {
             return response()->json(["message" => "You have already bookmarked this post"], 400);

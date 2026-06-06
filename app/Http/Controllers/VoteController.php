@@ -29,6 +29,11 @@ class VoteController extends Controller
             return response()->json(["message" => "Target not found"], 404);
         }
 
+        $checkPost = $post ?? ($comment ? Post::find($comment->post_id) : null);
+        if ($checkPost && $checkPost->status === 'deleted') {
+            return response()->json(["message" => "Cannot vote on a deleted post"], 403);
+        }
+
         $targetType = $post ? "post" : "comment";
         $target = $post ?? $comment;
 
@@ -140,6 +145,11 @@ class VoteController extends Controller
 
         if (!$post && !$comment) {
             return response()->json(["message" => "Target not found"], 404);
+        }
+
+        $checkPost = $post ?? ($comment ? Post::find($comment->post_id) : null);
+        if ($checkPost && $checkPost->status === 'deleted') {
+            return response()->json(["message" => "Cannot vote on a deleted post"], 403);
         }
 
         $targetType = $post ? "post" : "comment";

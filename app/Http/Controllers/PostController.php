@@ -36,6 +36,7 @@ public function index(Request $request)
 
     //  Bangun query sekali saja
     $query = Post::with(['tags', 'category', 'user'])
+        ->where('status', '!=', 'deleted')
         ->withCount([
             'likes',
             'bookmarks',
@@ -188,7 +189,15 @@ public function index(Request $request)
             });
         }
     ])
-    ->findOrFail($id);
+    ->where('status', '!=', 'deleted')
+    ->find($id);
+
+
+    if (!$post) {
+        return response()->json([
+            "message" => "Post not found"
+        ], 404);
+    }`
     
     // Increment view count only for logged-in users who are not the post owner
     if (auth()->check() && $post->user_id !== auth()->id()) {
@@ -380,7 +389,9 @@ public function index(Request $request)
             ], 403);
         }
 
-        $post->delete();
+        $post->update([
+            'status' => 'deleted',
+        ]);
 
         return response()->json([
             'message' => 'Post deleted successfully'

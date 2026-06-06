@@ -41,11 +41,16 @@ class CommentController extends Controller
             "parent_id" => 'nullable|exists:comments,id',
         ]);
 
-        // Cek apakah post sudah closed (accepted answer)
+        // Cek apakah post sudah closed atau deleted
         $post = Post::findOrFail($request->post_id);
         if ($post->status === 'closed') {
             return response()->json([
                 'message' => 'This post is closed and no longer accepts new comments'
+            ], 403);
+        }
+        if ($post->status === 'deleted') {
+            return response()->json([
+                'message' => 'This post is deleted and no longer accepts new comments'
             ], 403);
         }
 
@@ -135,11 +140,16 @@ class CommentController extends Controller
         ], 404);
     }
 
-    // Cek apakah post sudah closed
+    // Cek apakah post sudah closed atau deleted
     $post = Post::find($comment->post_id);
     if ($post && $post->status === 'closed') {
         return response()->json([
             'message' => 'This post is closed and comments can no longer be updated'
+        ], 403);
+    }
+    if ($post && $post->status === 'deleted') {
+        return response()->json([
+            'message' => 'This post is deleted and comments can no longer be updated'
         ], 403);
     }
 
@@ -191,11 +201,16 @@ class CommentController extends Controller
             ], 404);
         }
 
-        // Cek apakah post sudah closed
+        // Cek apakah post sudah closed atau deleted
         $post = Post::find($comment->post_id);
         if ($post && $post->status === 'closed') {
             return response()->json([
                 'message' => 'This post is closed and comments can no longer be deleted'
+            ], 403);
+        }
+        if ($post && $post->status === 'deleted') {
+            return response()->json([
+                'message' => 'This post is deleted and comments can no longer be deleted'
             ], 403);
         }
 
