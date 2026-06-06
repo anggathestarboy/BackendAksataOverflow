@@ -8,6 +8,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\VoteController;
 use App\Http\Middleware\IsAdminMiddleware;
@@ -42,6 +43,11 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource("/bookmarks", BookmarkController::class);
     Route::post("/votes", [VoteController::class, 'vote']);
     Route::post("/downvotes", [VoteController::class, 'downVote']);
+    Route::post("/reports", [ReportController::class, 'store']);
+    Route::get("/reports", [ReportController::class, 'getUserReports']);
+
+
+
 
     // Notification routes
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -55,21 +61,20 @@ Route::middleware('auth:api')->group(function () {
             Route::post('/promote-moderator/{username}', [AuthController::class, 'jadikanModerator']);
             Route::post('/promote-admin/{username}', [AuthController::class, 'jadikanAdmin']);
             Route::post('/turunkan/{username}', [AuthController::class, 'turunkanJabatan']);
-            
         });
     });
 
 
     Route::middleware([IsModeratorMiddleware::class])->group(function () {
-            Route::delete('/posts/{id}', [PostController::class, 'destroy']);
-            Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
-            Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
-            Route::delete('/tags/{id}', [TagController::class, 'destroy']);
-            Route::post('/categories', [CategoryController::class, 'store']);
-            Route::put('/categories/{slug}', [CategoryController::class, 'update']);
-           Route::delete('categories/{slug}', [CategoryController::class, 'destroy']);
-            
-            
+        Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+        Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+        Route::delete('/tags/{id}', [TagController::class, 'destroy']);
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::put('/categories/{slug}', [CategoryController::class, 'update']);
+        Route::delete('categories/{slug}', [CategoryController::class, 'destroy']);
+        Route::get('/reports-all', [ReportController::class, 'getAllReports']);
+        Route::patch('/reports-resolve/{id}', [ReportController::class, 'resolveReport']);
     });
 });
 
