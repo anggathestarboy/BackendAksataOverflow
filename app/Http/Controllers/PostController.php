@@ -197,7 +197,7 @@ public function index(Request $request)
         return response()->json([
             "message" => "Post not found"
         ], 404);
-    }`
+    }
     
     // Increment view count only for logged-in users who are not the post owner
     if (auth()->check() && $post->user_id !== auth()->id()) {
@@ -401,7 +401,7 @@ public function index(Request $request)
     /**
      * Accept a comment as the answer for a post.
      * Only the post owner can accept an answer.
-     * Once accepted, the post status becomes 'closed' and no new comments are allowed.
+     * Once accepted, the post is marked as answered but remains open for comments.
      */
     public function acceptAnswer(Request $request, string $id)
     {
@@ -449,11 +449,10 @@ public function index(Request $request)
             ], 400);
         }
 
-        // Accept the answer and close the post
+        // Accept the answer
         $post->update([
             'accepted_answer_id' => $comment->id,
             'is_answered' => true,
-            'status' => 'closed',
         ]);
 
         // Update comment is_accepted status
@@ -471,8 +470,59 @@ public function index(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'Answer accepted successfully. Post is now closed.',
+            'message' => 'Answer accepted successfully.',
             'data' => $post->fresh()->load('tags', 'category', 'user'),
         ]);
     }
+
+    /**
+     * Close a post.
+     * Only the post owner, moderators, or admins can close a post.
+     */
+    public function close(string $id)
+    {
+        $user = Auth::user();
+        $post = Post::find($id);
+
+        if (!$post) {
+            return response()->json(['message' => 'Post not found'], 404);
+        }
+
+        $isOwner = $post->user_id === $user->id;
+        $isAdmin = $user->roles()->where('name', 'admin')->exists();
+        $isModerator = $user->roles()->where('name', 'moderator')->exists();
+
+        if (!$isOwner && !$isAdmin && !$isModerator) {
+            return response()->json([
+                'message' => 'You do not have permission to close this post'
+            ], 403);
+        }
+
+        if ($post->status === 'closed') {
+            return response()->json([
+                'message' => 'Post is already closed'
+            ], 400);
+        }
+
+        if ($post->status === 'deleted') {
+            return response()->json([
+                'message' => 'Cannot close a deleted post'
+            ], 400);
+        }
+
+        $post->update([
+            'status' => 'closed',
+        ]);
+
+        return response()->json([
+            'message' => 'Post closed successfully',
+            'data' => $post->fresh()->load('tags', 'category', 'user'),
+        ]);
+    }
+
+    /**
+     * Reopen a closed post.
+     * Only the post owner, moderators, or admins can reopen a post.
+     */
+ 
 }

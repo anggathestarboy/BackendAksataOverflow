@@ -35,6 +35,7 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource("/tags", TagController::class)->except(['destroy']);
     Route::apiResource("/posts", PostController::class)->except(['show']);
     Route::post('/posts/{id}/accept-answer', [PostController::class, 'acceptAnswer']);
+    Route::post('/posts/{id}/close', [PostController::class, 'close']);
     Route::apiResource('/comments', CommentController::class)->except(['destroy']);
     Route::post("/likes", [LikeController::class, 'store']);
     Route::delete("/unlikes", [LikeController::class, 'unlike']);
