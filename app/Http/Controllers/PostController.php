@@ -170,12 +170,14 @@ public function index(Request $request)
         'category', 
         'user',
         'comments' => function($q) {
-            $q->with(['user', 'votes', 'replies'])->orderBy('created_at', 'desc');
+            $q->with(['user', 'votes', 'replies', 'likes'])->orderBy('created_at', 'desc');
         },
         'comments.user',
         'comments.votes',
+        'comments.likes',
         'comments.replies.user',
-        'comments.replies.votes'
+        'comments.replies.votes',
+        'comments.replies.likes'
     ])
     ->withCount([
         'likes', 
@@ -214,30 +216,57 @@ public function index(Request $request)
         $post->increment('view_count');
     }
     
-    
-    // Format comments dengan vote counts
-    $post->comments->transform(function($comment) {
-        $comment->votes_count = $comment->votes->sum(function($vote) {
-            return $vote->vote_type === 'upvote' ? 1 : -1;
-        });
+    $user = auth()->user();
+
+    // Helper function to format comments & replies
+    $formatComment = function($c) use ($user, &$formatComment) {
+        $c->comments_count = $c->replies ? $c->replies->count() : 0;
+        $c->likes_count = $c->likes ? $c->likes->count() : 0;
         
-        // Format replies jika ada
-        if ($comment->replies) {
-            $comment->replies->transform(function($reply) {
-                $reply->votes_count = $reply->votes->sum(function($vote) {
-                    return $vote->vote_type === 'upvote' ? 1 : -1;
-                });
-                return $reply;
-            });
+        $c->upvotes_count = $c->votes ? $c->votes->where('vote_type', 'upvote')->count() : 0;
+        $c->downvotes_count = $c->votes ? $c->votes->where('vote_type', 'downvote')->count() : 0;
+        
+        $c->comments_upvotes_count = 0;
+        $c->comments_downvotes_count = 0;
+        if ($c->replies) {
+            foreach ($c->replies as $reply) {
+                if ($reply->votes && $reply->votes->where('vote_type', 'upvote')->isNotEmpty()) {
+                    $c->comments_upvotes_count++;
+                }
+                if ($reply->votes && $reply->votes->where('vote_type', 'downvote')->isNotEmpty()) {
+                    $c->comments_downvotes_count++;
+                }
+            }
         }
         
-        return $comment;
+        $c->votes_count = $c->upvotes_count - $c->downvotes_count;
+
+        if ($user) {
+            $userVote = $c->votes ? $c->votes->where('user_id', $user->id)->first() : null;
+            $c->user_has_voted = $userVote ? true : false;
+            $c->user_vote_type = $userVote ? $userVote->vote_type : null;
+            $c->user_has_liked = $c->likes ? $c->likes->where('user_id', $user->id)->isNotEmpty() : false;
+        } else {
+            $c->user_has_voted = false;
+            $c->user_vote_type = null;
+            $c->user_has_liked = false;
+        }
+
+        if ($c->replies) {
+            $c->replies->transform(function($reply) use ($formatComment) {
+                return $formatComment($reply);
+            });
+        }
+
+        return $c;
+    };
+
+    $post->comments->transform(function($comment) use ($formatComment) {
+        return $formatComment($comment);
     });
     
     // Cek interaksi user saat ini (jika login)
-    if (auth()->check()) {
-        $user = auth()->user();
-        
+    if ($user) {
         // Status vote user pada post
         $userPostVote = Vote::where('user_id', $user->id)
             ->where('target_id', $post->id)
@@ -251,28 +280,11 @@ public function index(Request $request)
         
         // Status bookmark user pada post
         $post->user_has_bookmarked = $post->bookmarks()->where('user_id', $user->id)->exists();
-        
-        // Status vote user pada setiap comment
-        foreach ($post->comments as $comment) {
-            $userCommentVote = Vote::where('user_id', $user->id)
-                ->where('target_id', $comment->id)
-                ->where('target_type', 'comment')
-                ->first();
-            $comment->user_has_voted = $userCommentVote ? true : false;
-            $comment->user_vote_type = $userCommentVote ? $userCommentVote->vote_type : null;
-            
-            // Untuk replies
-            if ($comment->replies) {
-                foreach ($comment->replies as $reply) {
-                    $userReplyVote = Vote::where('user_id', $user->id)
-                        ->where('target_id', $reply->id)
-                        ->where('target_type', 'comment')
-                        ->first();
-                    $reply->user_has_voted = $userReplyVote ? true : false;
-                    $reply->user_vote_type = $userReplyVote ? $userReplyVote->vote_type : null;
-                }
-            }
-        }
+    } else {
+        $post->user_has_voted = false;
+        $post->user_vote_type = null;
+        $post->user_has_liked = false;
+        $post->user_has_bookmarked = false;
     }
     
     return response()->json([

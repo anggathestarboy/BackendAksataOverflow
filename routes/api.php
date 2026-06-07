@@ -24,7 +24,7 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/users-all', [AuthController::class, 'getAllUser']);
 Route::get('/detail-user/{username}', [AuthController::class, 'getDetailUser']);
-
+Route::get('/likes/{username}', [LikeController::class, 'index']);
 
 
 Route::middleware('auth:api')->group(function () {

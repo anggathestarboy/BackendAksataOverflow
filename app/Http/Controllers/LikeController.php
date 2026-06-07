@@ -6,6 +6,7 @@ use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Notification;
 use App\Models\Post;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class LikeController extends Controller
@@ -13,9 +14,16 @@ class LikeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index($username)
     {
-        //
+          $user = User::where('username', $username)->first();
+
+          if(!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+          }
+
+          $likes = Like::where('user_id', $user->id)->get();
+          return response()->json(['likes' => $likes]);
     }
 
     /**

@@ -29,7 +29,11 @@ class Comment extends Model
     }
 
     public function votes() {
-        return $this->hasMany(Vote::class, "target_id");
+        return $this->hasMany(Vote::class, "target_id")->where('target_type', 'comment');
+    }
+
+    public function likes() {
+        return $this->hasMany(Like::class, "target_id")->where('target_type', 'comment');
     }
 
     protected static function boot()
