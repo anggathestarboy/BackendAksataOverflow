@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Models\Like;
 use App\Models\Comment;
+use App\Models\CommentEditHistory;
 use App\Models\Bookmark;
 use App\Models\Vote;
 use Database\Seeders\RoleSeeder;
