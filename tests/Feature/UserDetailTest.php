@@ -183,6 +183,15 @@ class UserDetailTest extends TestCase
             'vote_type' => 'downvote',
         ]);
 
+        // Create edit history for parent comment
+        CommentEditHistory::create([
+            'comment_id' => $comment->id,
+            'edited_by' => $user->id,
+            'body_before' => 'Parent comment before edit',
+            'body_after' => 'Parent comment',
+            'edited_at' => now(),
+        ]);
+
         // 6. Test public post detail response (guest)
         $response = $this->getJson("/api/posts/{$post->id}");
         $response->assertStatus(200);
@@ -198,6 +207,7 @@ class UserDetailTest extends TestCase
         $this->assertEquals(0, $parentCommentJson['downvotes_count']);
         $this->assertEquals(0, $parentCommentJson['comments_upvotes_count']);
         $this->assertEquals(1, $parentCommentJson['comments_downvotes_count']); // reply has 1 downvote
+        $this->assertTrue($parentCommentJson['is_edited']); // Should be true
         $this->assertFalse($parentCommentJson['user_has_voted']);
         $this->assertNull($parentCommentJson['user_vote_type']);
         $this->assertFalse($parentCommentJson['user_has_liked']);
@@ -209,6 +219,7 @@ class UserDetailTest extends TestCase
         $this->assertEquals(0, $replyCommentJson['likes_count']);
         $this->assertEquals(0, $replyCommentJson['upvotes_count']);
         $this->assertEquals(1, $replyCommentJson['downvotes_count']);
+        $this->assertFalse($replyCommentJson['is_edited']); // Should be false
         $this->assertFalse($replyCommentJson['user_has_voted']);
         $this->assertNull($replyCommentJson['user_vote_type']);
         $this->assertFalse($replyCommentJson['user_has_liked']);
@@ -223,11 +234,27 @@ class UserDetailTest extends TestCase
         $this->assertTrue($parentCommentJson['user_has_voted']);
         $this->assertEquals('upvote', $parentCommentJson['user_vote_type']);
         $this->assertTrue($parentCommentJson['user_has_liked']);
+        $this->assertTrue($parentCommentJson['is_edited']);
 
         $replyCommentJson = collect($parentCommentJson['replies'])->firstWhere('id', $reply->id);
         $this->assertTrue($replyCommentJson['user_has_voted']);
         $this->assertEquals('downvote', $replyCommentJson['user_vote_type']);
         $this->assertFalse($replyCommentJson['user_has_liked']);
+        $this->assertFalse($replyCommentJson['is_edited']);
+
+        // 8. Test GET /api/comments index endpoint
+        $commentsIndexRes = $this->actingAs($viewer, 'api')
+            ->getJson("/api/comments");
+        $commentsIndexRes->assertStatus(200);
+        $commentsData = $commentsIndexRes->json('data');
+        
+        $parentCommentIndex = collect($commentsData)->firstWhere('id', $comment->id);
+        $this->assertNotNull($parentCommentIndex);
+        $this->assertTrue($parentCommentIndex['is_edited']);
+
+        $replyCommentIndex = collect($parentCommentIndex['replies'])->firstWhere('id', $reply->id);
+        $this->assertNotNull($replyCommentIndex);
+        $this->assertFalse($replyCommentIndex['is_edited']);
     }
 
     public function test_post_edit_histories_endpoint()
@@ -284,6 +311,39 @@ class UserDetailTest extends TestCase
         $this->assertEquals('Fix typos', $histories[0]['reason']);
         $this->assertEquals('author_user', $histories[0]['user']['username']);
         $this->assertEquals('Sample Post Title', $histories[0]['post']['title']);
+
+        // Create an unedited post
+        $uneditedPost = Post::create([
+            'user_id' => $author->id,
+            'category_id' => $category->id,
+            'title' => 'Unedited Post Title',
+            'body' => 'Unedited Post Body',
+            'status' => 'open',
+        ]);
+
+        // Test show endpoint for edited post (is_edited => true)
+        $showEditedRes = $this->getJson("/api/posts/{$post->id}");
+        $showEditedRes->assertStatus(200);
+        $this->assertTrue($showEditedRes->json('data.is_edited'));
+
+        // Test show endpoint for unedited post (is_edited => false)
+        $showUneditedRes = $this->getJson("/api/posts/{$uneditedPost->id}");
+        $showUneditedRes->assertStatus(200);
+        $this->assertFalse($showUneditedRes->json('data.is_edited'));
+
+        // Test index endpoint
+        $indexRes = $this->getJson("/api/posts");
+        $indexRes->assertStatus(200);
+        
+        $postsData = $indexRes->json('data');
+        $postFromIndex = collect($postsData)->firstWhere('id', $post->id);
+        $uneditedPostFromIndex = collect($postsData)->firstWhere('id', $uneditedPost->id);
+
+        $this->assertNotNull($postFromIndex);
+        $this->assertTrue($postFromIndex['is_edited']);
+
+        $this->assertNotNull($uneditedPostFromIndex);
+        $this->assertFalse($uneditedPostFromIndex['is_edited']);
     }
 }
 

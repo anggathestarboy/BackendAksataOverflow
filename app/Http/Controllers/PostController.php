@@ -42,6 +42,7 @@ public function index(Request $request)
             'likes',
             'bookmarks',
             'comments',
+            'post_edit_histories',
             'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
             'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
         ]);
@@ -77,6 +78,7 @@ public function index(Request $request)
     $user = auth()->user();
     $posts->getCollection()->transform(function($post) use ($user) {
         $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        $post->is_edited = $post->post_edit_histories_count > 0;
         $post->user_has_liked = $user
             ? $post->likes()->where('user_id', $user->id)->exists()
             : false;
@@ -170,19 +172,22 @@ public function index(Request $request)
         'category', 
         'user',
         'comments' => function($q) {
-            $q->with(['user', 'votes', 'replies', 'likes'])->orderBy('created_at', 'desc');
+            $q->with(['user', 'votes', 'replies', 'likes', 'comment_edit_histories'])->orderBy('created_at', 'desc');
         },
         'comments.user',
         'comments.votes',
         'comments.likes',
+        'comments.comment_edit_histories',
         'comments.replies.user',
         'comments.replies.votes',
-        'comments.replies.likes'
+        'comments.replies.likes',
+        'comments.replies.comment_edit_histories'
     ])
     ->withCount([
         'likes', 
         'bookmarks', 
         'comments',
+        'post_edit_histories',
         'votes as upvotes_count' => function($q) {
             $q->where('vote_type', 'upvote');
         },
@@ -217,6 +222,7 @@ public function index(Request $request)
     }
     
     $user = auth()->user();
+    $post->is_edited = $post->post_edit_histories_count > 0;
 
     // Helper function to format comments & replies
     $formatComment = function($c) use ($user, &$formatComment) {
@@ -240,6 +246,7 @@ public function index(Request $request)
         }
         
         $c->votes_count = $c->upvotes_count - $c->downvotes_count;
+        $c->is_edited = $c->comment_edit_histories ? $c->comment_edit_histories->isNotEmpty() : false;
 
         if ($user) {
             $userVote = $c->votes ? $c->votes->where('user_id', $user->id)->first() : null;

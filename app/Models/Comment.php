@@ -36,6 +36,10 @@ class Comment extends Model
         return $this->hasMany(Like::class, "target_id")->where('target_type', 'comment');
     }
 
+    public function comment_edit_histories() {
+        return $this->hasMany(CommentEditHistory::class, "comment_id");
+    }
+
     protected static function boot()
     {
         parent::boot();

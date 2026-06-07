@@ -17,7 +17,25 @@ class CommentController extends Controller
      */
     public function index()
     {
-        $comments = Comment::with(['user', 'replies'])->whereNull('parent_id')->orderBy('created_at', 'desc')->get();
+        $comments = Comment::with(['user', 'replies', 'comment_edit_histories', 'replies.comment_edit_histories'])
+            ->whereNull('parent_id')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $format = function($c) use (&$format) {
+            $c->is_edited = $c->comment_edit_histories ? $c->comment_edit_histories->isNotEmpty() : false;
+            if ($c->replies) {
+                $c->replies->transform(function($reply) use ($format) {
+                    return $format($reply);
+                });
+            }
+            return $c;
+        };
+
+        $comments->transform(function($comment) use ($format) {
+            return $format($comment);
+        });
+
         return response()->json(["message" => "Comments retrieved successfully", "data" => $comments]);
     }
 

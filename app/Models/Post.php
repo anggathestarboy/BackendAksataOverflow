@@ -45,6 +45,10 @@ class Post extends Model
         return $this->hasMany(Vote::class, "target_id")->where('target_type', 'post');
     }
 
+    public function post_edit_histories() {
+        return $this->hasMany(PostEditHistory::class, "post_id");
+    }
+
     public function bookmarks()
     {
         return $this->hasMany(Bookmark::class, "post_id");
