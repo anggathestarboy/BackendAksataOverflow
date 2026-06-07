@@ -124,6 +124,13 @@ public function index(Request $request)
 
 
 
+        $user = Auth::user();
+
+
+        if ($user->reputation_points < 5) {
+            return response()->json(['message' => 'you do not have enough reputation to create a post'], 401);
+        }
+
         $post = Post::create([
             'user_id' => auth()->id(),
             'category_id' => $category->id,
