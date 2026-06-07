@@ -238,10 +238,42 @@ class AuthController extends Controller
         return response()->json(['message' => 'User not found'], 404);
     }
 
+    $user->load([
+        'roles',
+        'posts' => function ($query) {
+            $query->where('status', '!=', 'deleted')
+                ->withCount([
+                    'likes',
+                    'bookmarks',
+                    'comments',
+                    'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
+                    'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
+                ])
+                ->with(['tags', 'category', 'user']);
+        }
+    ])->loadCount([
+        'posts' => function ($query) {
+            $query->where('status', '!=', 'deleted');
+        },
+        'followers',
+        'following'
+    ]);
+
+    $currentUser = auth()->user();
+    $user->posts->transform(function ($post) use ($currentUser) {
+        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        $post->user_has_liked = $currentUser
+            ? $post->likes()->where('user_id', $currentUser->id)->exists()
+            : false;
+        $post->user_has_bookmarked = $currentUser
+            ? $post->bookmarks()->where('user_id', $currentUser->id)->exists()
+            : false;
+        return $post;
+    });
+
     return response()->json([
         "message"=> "success get user detail",
-        'user' => $user->load('roles', 'posts')->loadCount('posts', "followers", "following"),
-        //                                                  ↑ nama relation yang valid
+        'user' => $user,
     ]);
 }
 
