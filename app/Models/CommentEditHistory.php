@@ -14,6 +14,15 @@ class CommentEditHistory extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+
+    public function user() {
+        return $this->belongsTo(User::class, "edited_by");
+    }
+
+    public function comment() {
+        return $this->belongsTo(Comment::class);
+    }
+
         protected static function boot()
         {
             parent::boot();

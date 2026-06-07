@@ -25,4 +25,12 @@ class PostEditHistory extends Model
         });
     }
 
+    public function user() {
+        return $this->belongsTo(User::class, "edited_by");
+    }
+
+    public function post() {
+        return $this->belongsTo(Post::class, "post_id");
+    }
+
 }

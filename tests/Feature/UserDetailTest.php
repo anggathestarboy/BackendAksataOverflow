@@ -229,5 +229,61 @@ class UserDetailTest extends TestCase
         $this->assertEquals('downvote', $replyCommentJson['user_vote_type']);
         $this->assertFalse($replyCommentJson['user_has_liked']);
     }
+
+    public function test_post_edit_histories_endpoint()
+    {
+        // 1. Create a moderator user
+        $moderator = User::create([
+            'username' => 'mod_user',
+            'email' => 'mod@example.com',
+            'password_hash' => bcrypt('password'),
+        ]);
+        $moderatorRole = \App\Models\Role::where('name', 'moderator')->first();
+        \App\Models\UserRole::create([
+            'user_id' => $moderator->id,
+            'role_id' => $moderatorRole->id,
+        ]);
+
+        // 2. Create another user who will author/edit post
+        $author = User::create([
+            'username' => 'author_user',
+            'email' => 'author@example.com',
+            'password_hash' => bcrypt('password'),
+        ]);
+
+        // 3. Create post
+        $category = Category::create([
+            'id' => \Illuminate\Support\Str::uuid(),
+            'name' => 'General 2',
+            'slug' => 'general-2',
+        ]);
+        $post = Post::create([
+            'user_id' => $author->id,
+            'category_id' => $category->id,
+            'title' => 'Sample Post Title',
+            'body' => 'Sample Post Body',
+            'status' => 'open',
+        ]);
+
+        // 4. Create post edit history record
+        \App\Models\PostEditHistory::create([
+            'post_id' => $post->id,
+            'edited_by' => $author->id,
+            'reason' => 'Fix typos',
+            'body_before' => 'Sample Post Body with typoos',
+            'body_after' => 'Sample Post Body',
+        ]);
+
+        // 5. Query the endpoint as moderator
+        $response = $this->actingAs($moderator, 'api')
+            ->getJson("/api/post-histories/{$post->id}");
+
+        $response->assertStatus(200);
+        $histories = $response->json('histories');
+        $this->assertCount(1, $histories);
+        $this->assertEquals('Fix typos', $histories[0]['reason']);
+        $this->assertEquals('author_user', $histories[0]['user']['username']);
+        $this->assertEquals('Sample Post Title', $histories[0]['post']['title']);
+    }
 }
 

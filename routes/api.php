@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CommentEditHistoryController;
+use App\Http\Controllers\PostEditHistoryController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\NotificationController;
@@ -80,6 +82,8 @@ Route::middleware('auth:api')->group(function () {
         Route::delete('categories/{slug}', [CategoryController::class, 'destroy']);
         Route::get('/reports-all', [ReportController::class, 'getAllReports']);
         Route::patch('/reports-resolve/{id}', [ReportController::class, 'resolveReport']);
+        Route::get('/comment-histories/{id}', [CommentEditHistoryController::class, 'index']);
+        Route::get('/post-histories/{id}', [PostEditHistoryController::class, 'index']);
     });
 });
 
