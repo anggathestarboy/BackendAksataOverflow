@@ -72,7 +72,27 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(PointsLog::class, 'user_id');
     }
 
+    public function posts()
+    {
+        return $this->hasMany(Post::class, 'user_id');
+    }
 
+    public function comments()
+    {
+        return $this->hasMany(Comment::class, 'user_id');
+    }
+
+    public function bookmarks()
+    {
+        return $this->hasMany(Bookmark::class, 'user_id');
+    }
+
+    public function postCount()
+    {
+        return $this->hasMany(Post::class, 'user_id')->count();
+    }
+
+   
 
 
     protected static function boot()

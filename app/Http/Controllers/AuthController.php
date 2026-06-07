@@ -230,6 +230,21 @@ class AuthController extends Controller
     }
 
 
+
+  public function getDetailUser($username){
+    $user = User::where('username', $username)->first();
+
+    if(!$user) {
+        return response()->json(['message' => 'User not found'], 404);
+    }
+
+    return response()->json([
+        "message"=> "success get user detail",
+        'user' => $user->load('roles', 'posts')->loadCount('posts', "followers", "following"),
+        //                                                  ↑ nama relation yang valid
+    ]);
+}
+
     public function updateProfile(Request $request)
     {
         $user = Auth::user();
