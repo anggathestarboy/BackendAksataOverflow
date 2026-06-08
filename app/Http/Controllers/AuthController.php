@@ -69,6 +69,27 @@ class AuthController extends Controller
         return response()->json(['message' => 'Successfully logged out']);
     }
 
+
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = Auth::user();
+
+        if (!password_verify($request->current_password, $user->password_hash)) {
+            return response()->json(['message' => 'Current password is incorrect'], 400);
+        }
+
+        $user->password_hash = $request->new_password;
+        $user->save();
+
+        return response()->json(['message' => 'Password updated successfully']);
+    }
+
     public function me()
     {
         $user = Auth::user()->load('roles');
@@ -331,7 +352,7 @@ class AuthController extends Controller
         "notes" => 'nullable|string|max:500',
     ]);
 
-        
+
         $user = User::where('username', $username)->first();
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);

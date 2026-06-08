@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PointsLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -33,11 +34,11 @@ class PointsLogController extends Controller
      */
     public function byUser(Request $request, string $username)
     {
-        $target = \App\Models\User::where('username', $username)->firstOrFail();
+        $target = User::where('username', $username)->firstOrFail();
 
         $logs = PointsLog::where('user_id', $target->id)
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->get();
 
         return response()->json([
             'status'             => 'success',

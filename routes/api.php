@@ -39,6 +39,7 @@ Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post(("/follow"), [FollowController::class, 'follow']);
     Route::delete(("/unfollow"), [FollowController::class, 'unfollow']);
 
+    Route::post("/change-password", [AuthController::class, 'resetPassword']);
     Route::apiResource("/categories", CategoryController::class)->except(['destroy', 'update', 'store']);
     Route::apiResource("/tags", TagController::class)->except(['destroy']);
     Route::apiResource("/posts", PostController::class)->except(['show']);
@@ -52,7 +53,7 @@ Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post("/downvotes", [VoteController::class, 'downVote']);
     Route::post("/reports", [ReportController::class, 'store']);
     Route::get("/reports", [ReportController::class, 'getUserReports']);
-
+Route::get("/points-logs/{username}", [PointsLogController::class, 'byUser']);
     Route::get('moderation-logs/user', [AuthController::class, 'getModerationLogsByUser']);
 
 
@@ -99,7 +100,7 @@ Route::get("/posts", [PostController::class, 'index']);
 Route::get("/posts/{id}", [PostController::class, 'show']);
 Route::get("/followers/{username}", [FollowController::class, 'followers']);
 Route::get("/followings/{username}", [FollowController::class, 'following']);
-Route::get("/points-logs/{username}", [PointsLogController::class, 'byUser']);
+
 Route::get("/users/{username}/level", [AuthController::class, 'getLevelInfo']);
 Route::get('/badges', [BadgeController::class, 'index']);
 Route::get('/users/{user}/badges', [BadgeController::class, 'getUserBadges']);
