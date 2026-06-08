@@ -6,6 +6,7 @@ use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\CommentEditHistoryController;
+use App\Http\Controllers\FeatureController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\NotificationController;
@@ -29,7 +30,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/users-all', [AuthController::class, 'getAllUser']);
 Route::get('/detail-user/{username}', [AuthController::class, 'getDetailUser']);
 Route::get('/likes/{username}', [LikeController::class, 'index']);
-
+Route::get('/leaderboard', [FeatureController::class, 'leaderboard']);
 
 Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

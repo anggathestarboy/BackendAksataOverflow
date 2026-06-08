@@ -25,20 +25,20 @@ class PostController extends Controller
      */
 public function index(Request $request)
 {
-    $sortBy = $request->get('sort_by', 'created_at');
+    $sortBy = $request->get('sort_by', 'view_count'); // default view_count tertinggi
     $sortOrder = $request->get('sort_order', 'desc');
 
     $allowedSortFields = [
-        'created_at', 'title', 'updated_at',
+        'created_at', 'title', 'updated_at', 'view_count',
         'votes_count', 'likes_count', 'bookmarks_count', 'comments_count'
     ];
 
     // Validasi sort field
     if (!in_array($sortBy, $allowedSortFields)) {
-        $sortBy = 'created_at';
+        $sortBy = 'view_count';
     }
 
-    //  Bangun query sekali saja
+    // Bangun query sekali saja
     $query = Post::with(['tags', 'category', 'user'])
         ->where('status', '!=', 'deleted')
         ->withCount([
@@ -70,8 +70,32 @@ public function index(Request $request)
         $query->whereHas('category', fn($q) => $q->whereIn('slug', $request->category_slugs));
     }
 
-    //  Sort di DB kalau bukan votes_count
-    if ($sortBy !== 'votes_count') {
+    // Filter tag slugs (multiple)
+    if ($request->has('tag_slugs') && is_array($request->tag_slugs)) {
+        $query->whereHas('tags', fn($q) => $q->whereIn('slug', $request->tag_slugs));
+    }
+
+    // Filter tag slug (single)
+    if ($request->filled('tag_slug')) {
+        $query->whereHas('tags', fn($q) => $q->where('slug', $request->tag_slug));
+    }
+
+    // Filter by user_id atau username
+    if ($request->filled('user_id')) {
+        $query->where('user_id', $request->user_id);
+    }
+    
+    if ($request->filled('username')) {
+        $query->whereHas('user', fn($q) => $q->where('username', $request->username));
+    }
+
+    // Sorting multi-level: view_count dulu, baru created_at
+    if ($sortBy === 'view_count') {
+        $query->orderBy('view_count', 'desc') // view_count tertinggi ke rendah
+              ->orderBy('created_at', 'desc'); // lalu terbaru ke lama
+    } 
+    // Sort di DB untuk field lain (bukan votes_count)
+    elseif ($sortBy !== 'votes_count') {
         $query->orderBy($sortBy, $sortOrder);
     }
 
@@ -91,7 +115,7 @@ public function index(Request $request)
         return $post;
     });
 
-    //  Sort manual hanya untuk votes_count (setelah transform)
+    // Sort manual hanya untuk votes_count (setelah transform)
     if ($sortBy === 'votes_count') {
         $sorted = $sortOrder === 'asc'
             ? $posts->getCollection()->sortBy('votes_count')
