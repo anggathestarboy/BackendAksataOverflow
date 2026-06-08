@@ -328,7 +328,7 @@ public function index(Request $request)
         $request->validate([
             'title' => 'required|string|max:255',
             'body' => 'required|string',
-            "reason" => 'required|string',
+            "reason" => 'nullable|string',
             'category_slug' => 'required|exists:categories,slug',
             'tags' => 'array',
             'tags.*' => 'exists:tags,slug',

@@ -72,6 +72,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(PointsLog::class, 'user_id');
     }
 
+    public function badges()
+    {
+        return $this->belongsToMany(Badge::class, 'user_badges', 'user_id', 'badge_id')->withTimestamps();
+    }
+
     public function posts()
     {
         return $this->hasMany(Post::class, 'user_id');

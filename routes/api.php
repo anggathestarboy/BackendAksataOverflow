@@ -1,20 +1,22 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\CommentEditHistoryController;
-use App\Http\Controllers\PostEditHistoryController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PointsLogController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\PostEditHistoryController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\VoteController;
 use App\Http\Middleware\IsAdminMiddleware;
+use App\Http\Middleware\IsBannedMiddleware;
 use App\Http\Middleware\IsModeratorMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -29,7 +31,7 @@ Route::get('/detail-user/{username}', [AuthController::class, 'getDetailUser']);
 Route::get('/likes/{username}', [LikeController::class, 'index']);
 
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/profile', [AuthController::class, 'updateProfile']);
@@ -84,6 +86,10 @@ Route::middleware('auth:api')->group(function () {
         Route::patch('/reports-resolve/{id}', [ReportController::class, 'resolveReport']);
         Route::get('/comment-histories/{id}', [CommentEditHistoryController::class, 'index']);
         Route::get('/post-histories/{id}', [PostEditHistoryController::class, 'index']);
+        Route::apiResource('/badges', BadgeController::class)->except(["update"]);
+        Route::post('/badges/{id}', [BadgeController::class, 'update']);
+        Route::post('/banned/{username}', [AuthController::class, 'banUser']);
+       
     });
 });
 
@@ -93,3 +99,8 @@ Route::get("/followers/{username}", [FollowController::class, 'followers']);
 Route::get("/followings/{username}", [FollowController::class, 'following']);
 Route::get("/points-logs/{username}", [PointsLogController::class, 'byUser']);
 Route::get("/users/{username}/level", [AuthController::class, 'getLevelInfo']);
+
+
+Route::middleware(['auth:api', IsAdminMiddleware::class])->group(function () {
+ Route::post('/unbanned/{username}', [AuthController::class, 'unbanUser']);
+});

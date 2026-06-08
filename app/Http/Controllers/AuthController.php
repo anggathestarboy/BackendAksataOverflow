@@ -230,16 +230,22 @@ class AuthController extends Controller
     }
 
 
-
-  public function getDetailUser($username){
+public function getDetailUser($username)
+{
     $user = User::where('username', $username)->first();
 
-    if(!$user) {
+    if (!$user) {
         return response()->json(['message' => 'User not found'], 404);
     }
 
+    $currentUser = auth()->user();
+
     $user->load([
         'roles',
+        'badges' => function ($query) {
+            $query->select('badges.id', 'badges.name', 'badges.description', 'badges.icon_url', 'badges.tier', 'badges.condition_type', 'badges.condition_value')
+                  ->orderByPivot('created_at', 'desc');
+        },
         'posts' => function ($query) {
             $query->where('status', '!=', 'deleted')
                 ->withCount([
@@ -250,16 +256,20 @@ class AuthController extends Controller
                     'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
                 ])
                 ->with(['tags', 'category', 'user']);
-        }
+        },
     ])->loadCount([
         'posts' => function ($query) {
             $query->where('status', '!=', 'deleted');
         },
         'followers',
-        'following'
+        'following',
+        'badges',
     ]);
 
-    $currentUser = auth()->user();
+    $isFollowing = $currentUser
+        ? $currentUser->following()->where('following_id', $user->id)->exists()
+        : false;
+
     $user->posts->transform(function ($post) use ($currentUser) {
         $post->votes_count = $post->upvotes_count - $post->downvotes_count;
         $post->user_has_liked = $currentUser
@@ -268,14 +278,54 @@ class AuthController extends Controller
         $post->user_has_bookmarked = $currentUser
             ? $post->bookmarks()->where('user_id', $currentUser->id)->exists()
             : false;
+
         return $post;
     });
 
     return response()->json([
-        "message"=> "success get user detail",
-        'user' => $user,
+        'message'      => 'Success get user detail',
+        'user'         => $user,
+        'is_following' => $isFollowing,
     ]);
 }
+
+
+public function banUser($username)
+{
+    $user = User::where('username', $username)->first();    
+    if (!$user) {
+        return response()->json(['message' => 'User not found'], 404);
+    }
+
+    if ($user->is_banned) {
+        return response()->json(['message' => 'User is already banned'], 400);
+    }
+
+    $user->is_banned = true;
+    $user->save();
+    return response()->json(['message' => 'User has been banned']);
+}
+
+
+public function unbanUser($username)
+{
+    $user = User::where('username', $username)->first();    
+    if (!$user) {
+        return response()->json(['message' => 'User not found'], 404);
+    }
+    if (!$user->is_banned) {
+        return response()->json(['message' => 'User is not banned'], 400);
+    }
+    $user->is_banned = false;
+    $user->save();
+    return response()->json(['message' => 'User has been unbanned']);
+}   
+
+
+
+
+
+
 
     public function updateProfile(Request $request)
     {
