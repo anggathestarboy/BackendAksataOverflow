@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ModerationLog;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
@@ -119,7 +120,8 @@ class AuthController extends Controller
     }
 
 
-    public function getAllUser() {
+    public function getAllUser()
+    {
         $users = User::all();
         return response()->json([
             'users' => $users,
@@ -162,7 +164,7 @@ class AuthController extends Controller
     }
 
 
-    public function jadikanAdmin ($username)
+    public function jadikanAdmin($username)
     {
         $user = User::where('username', $username)->first();
         if (!$user) {
@@ -175,10 +177,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Admin role not found'], 404);
         }
 
-        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+        if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->where('name', 'moderator');
         })->exists()) {
-           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
                 $query->where('name', 'moderator');
             })->delete();
         }
@@ -197,10 +199,11 @@ class AuthController extends Controller
     }
 
 
-    public function turunkanJabatan($username) {
+    public function turunkanJabatan($username)
+    {
         $user = User::where('username', $username)->first();
 
-        if($user && !UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+        if ($user && !UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->whereIn('name', ['admin', 'moderator']);
         })->exists()) {
             return response()->json(['message' => 'User is already a regular user'], 400);
@@ -210,18 +213,18 @@ class AuthController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+        if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->where('name', 'admin');
         })->exists()) {
-           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
                 $query->where('name', 'admin');
             })->delete();
         }
 
-        if( UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+        if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->where('name', 'moderator');
         })->exists()) {
-           UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
+            UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
                 $query->where('name', 'moderator');
             })->delete();
         }
@@ -230,100 +233,180 @@ class AuthController extends Controller
     }
 
 
-public function getDetailUser($username)
-{
-    $user = User::where('username', $username)->first();
+    public function getDetailUser($username)
+    {
+        $user = User::where('username', $username)->first();
 
-    if (!$user) {
-        return response()->json(['message' => 'User not found'], 404);
-    }
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
 
-    $currentUser = auth()->user();
+        $currentUser = auth()->user();
 
-    $user->load([
-        'roles',
-        'badges' => function ($query) {
-            $query->select('badges.id', 'badges.name', 'badges.description', 'badges.icon_url', 'badges.tier', 'badges.condition_type', 'badges.condition_value')
-                  ->orderByPivot('created_at', 'desc');
-        },
-        'posts' => function ($query) {
-            $query->where('status', '!=', 'deleted')
-                ->withCount([
-                    'likes',
-                    'bookmarks',
-                    'comments',
-                    'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
-                    'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
-                ])
-                ->with(['tags', 'category', 'user']);
-        },
-    ])->loadCount([
-        'posts' => function ($query) {
-            $query->where('status', '!=', 'deleted');
-        },
-        'followers',
-        'following',
-        'badges',
-    ]);
+        $user->load([
+            'roles',
+            'badges' => function ($query) {
+                $query->select('badges.id', 'badges.name', 'badges.description', 'badges.icon_url', 'badges.tier', 'badges.condition_type', 'badges.condition_value')
+                    ->orderByPivot('created_at', 'desc');
+            },
+            'posts' => function ($query) {
+                $query->where('status', '!=', 'deleted')
+                    ->withCount([
+                        'likes',
+                        'bookmarks',
+                        'comments',
+                        'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
+                        'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
+                    ])
+                    ->with(['tags', 'category', 'user']);
+            },
+        ])->loadCount([
+            'posts' => function ($query) {
+                $query->where('status', '!=', 'deleted');
+            },
+            'followers',
+            'following',
+            'badges',
+        ]);
 
-    $isFollowing = $currentUser
-        ? $currentUser->following()->where('following_id', $user->id)->exists()
-        : false;
-
-    $user->posts->transform(function ($post) use ($currentUser) {
-        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
-        $post->user_has_liked = $currentUser
-            ? $post->likes()->where('user_id', $currentUser->id)->exists()
-            : false;
-        $post->user_has_bookmarked = $currentUser
-            ? $post->bookmarks()->where('user_id', $currentUser->id)->exists()
+        $isFollowing = $currentUser
+            ? $currentUser->following()->where('following_id', $user->id)->exists()
             : false;
 
-        return $post;
-    });
+        $user->posts->transform(function ($post) use ($currentUser) {
+            $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+            $post->user_has_liked = $currentUser
+                ? $post->likes()->where('user_id', $currentUser->id)->exists()
+                : false;
+            $post->user_has_bookmarked = $currentUser
+                ? $post->bookmarks()->where('user_id', $currentUser->id)->exists()
+                : false;
 
-    return response()->json([
-        'message'      => 'Success get user detail',
-        'user'         => $user,
-        'is_following' => $isFollowing,
+            return $post;
+        });
+
+        return response()->json([
+            'message'      => 'Success get user detail',
+            'user'         => $user,
+            'is_following' => $isFollowing,
+        ]);
+    }
+
+
+    public function banUser(Request $request, $username)
+    {
+
+    $request->validate([
+        'reason' => 'required|string|max:255',
+        "notes" => 'nullable|string|max:500',
     ]);
-}
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
 
+        if ($user->is_banned) {
+            return response()->json(['message' => 'User is already banned'], 400);
+        }
 
-public function banUser($username)
-{
-    $user = User::where('username', $username)->first();    
-    if (!$user) {
-        return response()->json(['message' => 'User not found'], 404);
+        $user->is_banned = true;
+        $user->save();
+
+        ModerationLog::create([
+            'moderator_id' => auth()->id(),
+            'target_user_id' => $user->id,
+            'reason' => $request->reason,
+            'notes' => $request->notes,
+            'action_type' => 'ban',
+        ]);
+
+        return response()->json(['message' => 'User has been banned']);
     }
 
-    if ($user->is_banned) {
-        return response()->json(['message' => 'User is already banned'], 400);
+
+    public function unbanUser(Request $request, $username)
+    {
+    $request->validate([
+        'reason' => 'required|string|max:255',
+        "notes" => 'nullable|string|max:500',
+    ]);
+
+        
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        if (!$user->is_banned) {
+            return response()->json(['message' => 'User is not banned'], 400);
+        }
+        $user->is_banned = false;
+        $user->save();
+
+        ModerationLog::create([
+            'moderator_id' => auth()->id(),
+            'target_user_id' => $user->id,
+            'reason' => $request->reason,
+            'notes' => $request->notes,
+            'action_type' => 'unban',
+        ]);
+        return response()->json(['message' => 'User has been unbanned']);
     }
 
-    $user->is_banned = true;
-    $user->save();
-    return response()->json(['message' => 'User has been banned']);
-}
 
 
-public function unbanUser($username)
-{
-    $user = User::where('username', $username)->first();    
-    if (!$user) {
-        return response()->json(['message' => 'User not found'], 404);
+
+
+    public function createWarning(Request $request, $username)
+    {
+        $userLogin = auth()->user();
+        $request->validate([
+            'reason' => 'required|string|max:255',
+            "notes" => 'nullable|string|max:500',
+        ]);
+
+        $user = User::where('username', $username)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Simpan warning ke database (misalnya ke tabel warnings)
+        ModerationLog::create([
+            "moderator_id" => $userLogin->id,
+            'target_user_id' => $user->id,
+            'reason' => $request->reason,
+            'action_type' => 'warning',
+            'notes' => $request->notes,
+
+        ]);
+
+        return response()->json(['message' => 'Warning issued to user']);
     }
-    if (!$user->is_banned) {
-        return response()->json(['message' => 'User is not banned'], 400);
+
+
+    public function getAllModerationLogs()
+    {
+        $logs = ModerationLog::with(['moderator', "user"])->orderBy('created_at', 'desc')->get();
+        return response()->json([
+            'message' => 'Success get all moderation logs',
+            'data' => $logs,
+        ]);
     }
-    $user->is_banned = false;
-    $user->save();
-    return response()->json(['message' => 'User has been unbanned']);
-}   
 
 
+    public function getModerationLogsByUser()
+    {
+        $user = Auth::user();
 
+        $logs = ModerationLog::with(['moderator', "user"])
+            ->where('target_user_id', $user->id)->where('action_type', 'warning')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
+        return response()->json([
+            'message' => 'Success get user moderation logs',
+            'data' => $logs,
+        ]);
+    }
 
 
 
@@ -331,7 +414,7 @@ public function unbanUser($username)
     {
         $user = Auth::user();
 
-      $data =  $request->validate([
+        $data =  $request->validate([
             'username'   => 'required|string|max:12|unique:users,username,' . $user->id . '|regex:/^[a-zA-Z0-9_]+$/',
             'email'      => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'avatar_url' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Diubah menjadi validasi gambar (max 2MB)

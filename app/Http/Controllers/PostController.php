@@ -4,16 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Comment;
+use App\Models\ModerationLog;
 use App\Models\Notification;
 use App\Models\Post;
 use App\Models\PostEditHistory;
 use App\Models\PostTag;
 use App\Models\Tag;
+use App\Models\User;
 use App\Models\Vote;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Services\BadgeService;
 use App\Services\MentionService;
 use App\Services\ReputationService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
@@ -162,6 +165,9 @@ public function index(Request $request)
             $post->id,
             'Created a new post'
         );
+
+        
+        app(BadgeService::class)->awardBadgesForUser(auth()->user()->fresh());
 
         return response()->json([
             "message" => "post created successfully",
@@ -429,6 +435,25 @@ public function index(Request $request)
             'status' => 'deleted',
         ]);
 
+        ModerationLog::create([
+            'moderator_id' => auth()->id(),
+            'target_user_id' => $post->user_id,
+            'reason' => 'Deleted post: ' . $post->title,
+            'action_type' => 'delete_post',
+   
+        ]);
+
+         // -2 reputation for post deletion (only if deleted by owner)
+         if ($isOwner) {
+            ReputationService::deduct(
+                $post->user_id,
+                ReputationService::POINTS_POST_DELETED,
+                ReputationService::ACTION_POST_DELETED,
+                $post->id,
+                'Post deleted: ' . $post->title
+            );
+        }
+
         return response()->json([
             'message' => 'Post deleted successfully'
         ]);
@@ -513,6 +538,10 @@ public function index(Request $request)
             $comment->id,
             'Answer accepted on post: ' . $post->title
         );
+        
+        // Setelah ReputationService::award(...) di acceptAnswer()
+$commentOwner = User::find($comment->user_id);
+app(BadgeService::class)->awardBadgesForUser($commentOwner);
 
         return response()->json([
             'message' => 'Answer accepted successfully.',
@@ -558,6 +587,15 @@ public function index(Request $request)
         $post->update([
             'status' => 'closed',
         ]);
+
+         ModerationLog::create([
+            'moderator_id' => auth()->id(),
+            'target_user_id' => $post->user_id,
+            'reason' => 'Closed post: ' . $post->title,
+            'action_type' => 'close_post',
+           
+        ]);
+
 
         return response()->json([
             'message' => 'Post closed successfully',

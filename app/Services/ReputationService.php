@@ -49,34 +49,33 @@ class ReputationService
      * @param  string|null $description Human-readable description
      * @return PointsLog
      */
-    public static function award(
-        string  $userId,
-        int     $points,
-        string  $actionType,
-        ?string $referenceId = null,
-        ?string $description = null
-    ): PointsLog {
-        // Atomically update reputation_points — allow going negative
-        User::where('id', $userId)->increment('reputation_points', $points);
+  public static function award(
+    string  $userId,
+    int     $points,
+    string  $actionType,
+    ?string $referenceId = null,
+    ?string $description = null
+): PointsLog {
+    User::where('id', $userId)->increment('reputation_points', $points);
 
-        // Recalculate and persist the level
-        $user  = User::find($userId);
-        $level = self::calculateLevel($user->reputation_points);
-        if ($user->level !== $level) {
-            $user->update(['level' => $level]);
-        }
-
-        // Log the action
-        return PointsLog::create([
-            'id'           => (string) Str::uuid(),
-            'user_id'      => $userId,
-            'points'       => $points,
-            'action_type'  => $actionType,
-            'reference_id' => $referenceId,
-            'description'  => $description,
-        ]);
+    $user  = User::find($userId);
+    $level = self::calculateLevel($user->reputation_points);
+    if ($user->level !== $level) {
+        $user->update(['level' => $level]);
     }
 
+    // ← tambahkan ini
+    app(BadgeService::class)->awardBadgesForUser($user->fresh());
+
+    return PointsLog::create([
+        'id'           => (string) Str::uuid(),
+        'user_id'      => $userId,
+        'points'       => $points,
+        'action_type'  => $actionType,
+        'reference_id' => $referenceId,
+        'description'  => $description,
+    ]);
+}
     /**
      * Convenience wrapper — deduct a positive amount.
      */

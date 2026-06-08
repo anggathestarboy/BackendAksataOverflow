@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 #[Guarded([])]
 class ModerationLog extends Model
 {
-    public $timestamps = true;
+    public $timestamps = false;
     protected $keyType = 'string';
     public $incrementing = false;
 
@@ -18,9 +18,10 @@ class ModerationLog extends Model
         return $this->belongsTo(User::class, 'moderator_id');
     }
 
-    public function post()
+  
+    public function user()
     {
-        return $this->belongsTo(Post::class, 'post_id');
+        return $this->belongsTo(User::class, 'target_user_id');
     }
 
     protected static function boot()

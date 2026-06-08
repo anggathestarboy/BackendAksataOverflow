@@ -52,7 +52,7 @@ Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post("/reports", [ReportController::class, 'store']);
     Route::get("/reports", [ReportController::class, 'getUserReports']);
 
-
+    Route::get('moderation-logs/user', [AuthController::class, 'getModerationLogsByUser']);
 
 
     // Notification routes
@@ -89,7 +89,8 @@ Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
         Route::apiResource('/badges', BadgeController::class)->except(["update"]);
         Route::post('/badges/{id}', [BadgeController::class, 'update']);
         Route::post('/banned/{username}', [AuthController::class, 'banUser']);
-       
+       Route::post('/warnings/{username}', [AuthController::class, 'createWarning']);
+       Route::get('/moderation-logs', [AuthController::class, 'getAllModerationLogs']);
     });
 });
 
@@ -99,6 +100,10 @@ Route::get("/followers/{username}", [FollowController::class, 'followers']);
 Route::get("/followings/{username}", [FollowController::class, 'following']);
 Route::get("/points-logs/{username}", [PointsLogController::class, 'byUser']);
 Route::get("/users/{username}/level", [AuthController::class, 'getLevelInfo']);
+Route::get('/badges', [BadgeController::class, 'index']);
+Route::get('/users/{user}/badges', [BadgeController::class, 'getUserBadges']);
+Route::get('/users/{user}/badges/upcoming', [BadgeController::class, 'getUpcomingBadges']);
+Route::get('/badges/{badge}', [BadgeController::class, 'show']);
 
 
 Route::middleware(['auth:api', IsAdminMiddleware::class])->group(function () {
