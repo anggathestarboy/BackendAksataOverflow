@@ -155,7 +155,7 @@ public function index(Request $request)
 
 
         if ($user->reputation_points < 5) {
-            return response()->json(['message' => 'you do not have enough reputation to create a post'], 401);
+            return response()->json(['message' => 'Reputation Anda tidak mencukupi untuk membuat postingan'], 401);
         }
 
         $post = Post::create([
@@ -194,7 +194,7 @@ public function index(Request $request)
         app(BadgeService::class)->awardBadgesForUser(auth()->user()->fresh());
 
         return response()->json([
-            "message" => "post created successfully",
+            "message" => "Postingan berhasil dibuat",
             "data" => $post->load('tags', 'category')
         ]);
     }
@@ -422,7 +422,7 @@ public function index(Request $request)
         MentionService::handleMentions($request->body, $user->id, 'mention', $post->id, 'post');
 
         return response()->json([
-            'message' => 'post updated successfully',
+            'message' => 'post berhasil diperbarui',
             'data' => $post->fresh()->load('tags', 'category'),
             "edit_history" => $postEditHistory
         ]);
@@ -451,7 +451,7 @@ public function index(Request $request)
 
         if (!$isOwner && !$isAdmin && !$isModerator) {
             return response()->json([
-                'message' => 'You do not have permission to delete this post'
+                'message' => 'kamu tidak memiliki izin untuk menghapus postingan ini'
             ], 403);
         }
 
@@ -479,7 +479,7 @@ public function index(Request $request)
         }
 
         return response()->json([
-            'message' => 'Post deleted successfully'
+            'message' => 'Postingan berhasil dihapus'
         ]);
     }
 
@@ -499,20 +499,20 @@ public function index(Request $request)
         $post = Post::find($id);
 
         if (!$post) {
-            return response()->json(['message' => 'Post not found'], 404);
+            return response()->json(['message' => 'Post tidak ditemukan'], 404);
         }
 
         // Only the post owner can accept an answer
         if ($post->user_id !== $user->id) {
             return response()->json([
-                'message' => 'Only the post owner can accept an answer'
+                'message' => 'Hanya pemilik postingan yang dapat menerima jawaban'
             ], 403);
         }
 
         // Check if post already has an accepted answer
         if ($post->is_answered) {
             return response()->json([
-                'message' => 'This post already has an accepted answer'
+                'message' => 'postingan ini sudah memiliki jawaban yang diterima'
             ], 400);
         }
 
@@ -523,14 +523,14 @@ public function index(Request $request)
 
         if (!$comment) {
             return response()->json([
-                'message' => 'Comment not found on this post'
+                'message' => 'komentar tidak ditemukan untuk postingan ini'
             ], 404);
         }
 
         // Cannot accept your own comment as answer
         if ($comment->user_id === $user->id) {
             return response()->json([
-                'message' => 'You cannot accept your own comment as an answer'
+                'message' => 'Anda tidak dapat menerima komentar sendiri sebagai jawaban'
             ], 400);
         }
 
@@ -568,7 +568,7 @@ $commentOwner = User::find($comment->user_id);
 app(BadgeService::class)->awardBadgesForUser($commentOwner);
 
         return response()->json([
-            'message' => 'Answer accepted successfully.',
+            'message' => 'Jawaban berhasil diterima.',
             'data' => $post->fresh()->load('tags', 'category', 'user'),
         ]);
     }
@@ -598,13 +598,13 @@ app(BadgeService::class)->awardBadgesForUser($commentOwner);
 
         if ($post->status === 'closed') {
             return response()->json([
-                'message' => 'Post is already closed'
+                'message' => 'postingan ini sudah ditutup'
             ], 400);
         }
 
         if ($post->status === 'deleted') {
             return response()->json([
-                'message' => 'Cannot close a deleted post'
+                'message' => 'Tidak dapat menutup postingan yang telah dihapus'
             ], 400);
         }
 
@@ -622,7 +622,7 @@ app(BadgeService::class)->awardBadgesForUser($commentOwner);
 
 
         return response()->json([
-            'message' => 'Post closed successfully',
+            'message' => 'Postingan berhasil ditutup',
             'data' => $post->fresh()->load('tags', 'category', 'user'),
         ]);
     }

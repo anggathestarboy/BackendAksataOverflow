@@ -25,12 +25,15 @@ use Illuminate\Support\Facades\Route;
 
 
 
-Route::post('/auth/register', [AuthController::class, 'register']);
+Route::middleware("throttle:api")->group(function () {
+   Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/users-all', [AuthController::class, 'getAllUser']);
 Route::get('/detail-user/{username}', [AuthController::class, 'getDetailUser']);
 Route::get('/likes/{username}', [LikeController::class, 'index']);
 Route::get('/leaderboard', [FeatureController::class, 'leaderboard']);
+Route::get("/search-users", [AuthController::class, 'searchUsers']);
+
 
 Route::middleware(['auth:api', IsBannedMiddleware::class ])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -111,3 +114,7 @@ Route::get('/badges/{badge}', [BadgeController::class, 'show']);
 Route::middleware(['auth:api', IsAdminMiddleware::class])->group(function () {
  Route::post('/unbanned/{username}', [AuthController::class, 'unbanUser']);
 });
+});
+
+
+

@@ -38,7 +38,7 @@ class AuthController extends Controller
     ]);
 
     return response()->json([
-        'message' => 'User registered successfully',
+        'message' => 'User berhasil didaftarkan',
         'token' => $token,
         'user' => $user->load('roles'),
     ], 201);
@@ -55,25 +55,25 @@ class AuthController extends Controller
         $user = User::where('username', $request->username)->first();
 
         if (!$user) {
-            return response()->json(['message' => 'Username not found'], 401);
+            return response()->json(['message' => 'Username tidak ditemukan'], 401);
         }
 
 
         if (!$token = Auth::attempt($validasi)) {
             return response()->json([
-                'message' => 'Invalid password'
+                'message' => 'Kata sandi tidak valid'
             ], 401);
         }
 
 
 
-        return response()->json(['message' => 'Login successful', 'token' => $token, "user" => $user->load('roles')], 200);
+        return response()->json(['message' => 'Login berhasil', 'token' => $token, "user" => $user->load('roles')], 200);
     }
 
     public function logout()
     {
         Auth::logout();
-        return response()->json(['message' => 'Successfully logged out']);
+        return response()->json(['message' => 'Logout berhasil']);
     }
 
 
@@ -88,13 +88,13 @@ class AuthController extends Controller
         $user = Auth::user();
 
         if (!password_verify($request->current_password, $user->password_hash)) {
-            return response()->json(['message' => 'Current password is incorrect'], 400);
+            return response()->json(['message' => 'Kata sandi saat ini salah'], 400);
         }
 
         $user->password_hash = $request->new_password;
         $user->save();
 
-        return response()->json(['message' => 'Password updated successfully']);
+        return response()->json(['message' => 'Password berhasil diperbarui']);
     }
 
     public function me()
@@ -116,27 +116,47 @@ class AuthController extends Controller
         ]);
     }
 
+
+    public function searchUsers(Request $request)
+    {
+        $search = $request->query('search');
+
+        if (!$search) {
+            return response()->json(['message' => 'Parameter pencarian diperlukan'], 400);
+        }
+
+       $users = User::where('username', 'like', '%' . $search . '%')
+    ->limit(5)
+    ->get();
+
+        return response()->json([
+            'message' => 'Search results',
+            'users' => $users,
+        ]);
+
+    }
+
     public function jadikanModerator($username)
     {
 
         $user = User::where('username', $username)->first();
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         $moderatorRole = Role::where('name', 'moderator')->first();
         if (!$moderatorRole) {
-            return response()->json(['message' => 'Moderator role not found'], 404);
+            return response()->json(['message' => 'Peran moderator tidak ditemukan'], 404);
         }
 
         if (UserRole::where('user_id', $user->id)->where('role_id', $moderatorRole->id)->exists()) {
-            return response()->json(['message' => 'User is already a moderator'], 400);
+            return response()->json(['message' => 'User sudah menjadi moderator'], 400);
         }
 
         if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->where('name', 'admin');
         })->exists()) {
-            return response()->json(['message' => 'User is already an admin, cannot be promoted to moderator'], 400);
+            return response()->json(['message' => 'User sudah menjadi admin, tidak dapat ditingkatkan menjadi moderator'], 400);
         }
 
         UserRole::create([
@@ -144,7 +164,7 @@ class AuthController extends Controller
             'role_id' => $moderatorRole->id,
         ]);
 
-        return response()->json(['message' => 'User has been promoted to moderator']);
+        return response()->json(['message' => 'User telah dipromosikan menjadi moderator']);
     }
 
 
@@ -196,13 +216,13 @@ class AuthController extends Controller
     {
         $user = User::where('username', $username)->first();
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         $adminRole = Role::where('name', 'admin')->first();
 
         if (!$adminRole) {
-            return response()->json(['message' => 'Admin role not found'], 404);
+            return response()->json(['message' => 'Peran admin tidak ditemukan'], 404);
         }
 
         if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
@@ -215,7 +235,7 @@ class AuthController extends Controller
 
 
         if (UserRole::where('user_id', $user->id)->where('role_id', $adminRole->id)->exists()) {
-            return response()->json(['message' => 'User is already an admin'], 400);
+            return response()->json(['message' => 'User sudah menjadi admin'], 400);
         }
 
         UserRole::create([
@@ -223,7 +243,7 @@ class AuthController extends Controller
             'role_id' => $adminRole->id,
         ]);
 
-        return response()->json(['message' => 'User has been promoted to admin']);
+        return response()->json(['message' => 'User telah dipromosikan menjadi admin']);
     }
 
 
@@ -234,11 +254,11 @@ class AuthController extends Controller
         if ($user && !UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
             $query->whereIn('name', ['admin', 'moderator']);
         })->exists()) {
-            return response()->json(['message' => 'User is already a regular user'], 400);
+            return response()->json(['message' => 'User sudah menjadi user biasa'], 400);
         }
 
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         if (UserRole::where('user_id', $user->id)->whereHas('role', function ($query) {
@@ -257,7 +277,7 @@ class AuthController extends Controller
             })->delete();
         }
 
-        return response()->json(['message' => 'Your role has been downgraded to user']);
+        return response()->json(['message' => 'Jabatan Anda telah diturunkan menjadi user']);
     }
 
 
@@ -266,7 +286,7 @@ class AuthController extends Controller
         $user = User::where('username', $username)->first();
 
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
         $currentUser = auth()->user();
@@ -348,7 +368,7 @@ class AuthController extends Controller
             'action_type' => 'ban',
         ]);
 
-        return response()->json(['message' => 'User has been banned']);
+        return response()->json(['message' => 'User telah dibanned']);
     }
 
 
@@ -362,10 +382,10 @@ class AuthController extends Controller
 
         $user = User::where('username', $username)->first();
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
         if (!$user->is_banned) {
-            return response()->json(['message' => 'User is not banned'], 400);
+            return response()->json(['message' => 'User tidak sedang dibanned'], 400);
         }
         $user->is_banned = false;
         $user->save();
@@ -377,7 +397,7 @@ class AuthController extends Controller
             'notes' => $request->notes,
             'action_type' => 'unban',
         ]);
-        return response()->json(['message' => 'User has been unbanned']);
+        return response()->json(['message' => 'User telah di-unbanned']);
     }
 
 
@@ -407,7 +427,7 @@ class AuthController extends Controller
 
         ]);
 
-        return response()->json(['message' => 'Warning issued to user']);
+        return response()->json(['message' => 'Warning telah diberikan kepada user']);
     }
 
 
@@ -476,7 +496,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => 'Profile akun berhasil diperbarui',
         ], 200);
     }
 }
