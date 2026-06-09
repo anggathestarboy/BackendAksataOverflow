@@ -15,27 +15,34 @@ use Illuminate\Support\Facades\Storage;
 class AuthController extends Controller
 {
     public function register(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|string|max:12|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password_hash' => 'required|string|min:6',
-            "avatar_url" => 'nullable|string|max:500',
-            "bio" => 'nullable|string',
-        ]);
+{
+    $request->validate([
+        'username' => 'required|string|max:12|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
+        'email' => 'required|string|email|max:255|unique:users,email',
+        'password_hash' => 'required|string|min:6',
+        "avatar_url" => 'nullable|string|max:500',
+        "bio" => 'nullable|string',
+    ]);
 
-        $user = User::create($request->all());
+    $user = User::create($request->all());
 
-        UserRole::create([
-            'user_id' => $user->id,
-            'role_id' => Role::where('name', 'user')->first()->id,
+    UserRole::create([
+        'user_id' => $user->id,
+        'role_id' => Role::where('name', 'user')->first()->id,
+    ]);
 
-        ]);
+    // Auto-login setelah register
+    $token = Auth::attempt([
+        'username' => $request->username,
+        'password' => $request->password_hash,
+    ]);
 
-
-
-        return response()->json(['message' => 'User registered successfully', 'user' => $user->load('roles')], 201);
-    }
+    return response()->json([
+        'message' => 'User registered successfully',
+        'token' => $token,
+        'user' => $user->load('roles'),
+    ], 201);
+}
 
 
     public function login(Request $request)
