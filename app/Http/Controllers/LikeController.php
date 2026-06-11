@@ -22,7 +22,7 @@ class LikeController extends Controller
             return response()->json(['message' => 'User not found'], 404);
           }
 
-          $likes = Like::where('user_id', $user->id)->get();
+          $likes = Like::where('user_id', $user->id)->with(['post', 'comment'])->get();
           return response()->json(['likes' => $likes]);
     }
 
