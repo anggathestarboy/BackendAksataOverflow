@@ -26,6 +26,63 @@ class LikeController extends Controller
           return response()->json(['likes' => $likes]);
     }
 
+
+    /**
+ * Get likes by category slug
+ */
+public function getByCategory(Request $request, string $categorySlug)
+{
+    $user = $request->user();
+
+    $category = \App\Models\Category::where('slug', $categorySlug)->first();
+
+    if (!$category) {
+        return response()->json(['message' => 'Category not found'], 404);
+    }
+
+    $likes = Like::where('user_id', $user->id)
+        ->where('target_type', 'post')
+        ->whereHasMorph('target', [Post::class], function ($query) use ($category) {
+            $query->where('category_id', $category->id)
+                  ->where('status', '!=', 'deleted');
+        })
+        ->with(['post'])
+        ->get();
+
+    return response()->json([
+        'category' => $categorySlug,
+        'likes' => $likes,
+    ]);
+}
+
+/**
+ * Get likes by tag slug
+ */
+public function getByTag(Request $request, string $tagSlug)
+{
+    $user = $request->user();
+
+    $tag = \App\Models\Tag::where('slug', $tagSlug)->first();
+
+    if (!$tag) {
+        return response()->json(['message' => 'Tag not found'], 404);
+    }
+
+    $likes = Like::where('user_id', $user->id)
+        ->where('target_type', 'post')
+        ->whereHasMorph('target', [Post::class], function ($query) use ($tag) {
+            $query->whereHas('tags', fn($q) => $q->where('tags.id', $tag->id))
+                  ->where('status', '!=', 'deleted');
+        })
+        ->with(['post'])
+        ->get();
+
+    return response()->json([
+        'tag' => $tagSlug,
+        'likes' => $likes,
+    ]);
+}
+
     /**
      * Show the form for creating a new resource.
      */

@@ -481,7 +481,158 @@ public function index(Request $request)
         return response()->json([
             'message' => 'Postingan berhasil dihapus'
         ]);
+
+
+
     }
+
+
+
+
+    public function getByCategory(Request $request, string $categorySlug)
+{
+    $category = Category::where('slug', $categorySlug)->first();
+
+    if (!$category) {
+        return response()->json(['message' => 'Category not found'], 404);
+    }
+
+    $sortBy = $request->get('sort_by', 'view_count');
+    $sortOrder = $request->get('sort_order', 'desc');
+
+    $allowedSortFields = [
+        'created_at', 'title', 'updated_at', 'view_count',
+        'votes_count', 'likes_count', 'bookmarks_count', 'comments_count'
+    ];
+
+    if (!in_array($sortBy, $allowedSortFields)) {
+        $sortBy = 'view_count';
+    }
+
+    $query = Post::with(['tags', 'category', 'user'])
+        ->where('status', '!=', 'deleted')
+        ->where('category_id', $category->id)
+        ->withCount([
+            'likes',
+            'bookmarks',
+            'comments',
+            'post_edit_histories',
+            'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
+            'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
+        ]);
+
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('title', 'LIKE', "%{$search}%")
+              ->orWhere('body', 'LIKE', "%{$search}%");
+        });
+    }
+
+    if ($sortBy === 'view_count') {
+        $query->orderBy('view_count', 'desc')->orderBy('created_at', 'desc');
+    } elseif ($sortBy !== 'votes_count') {
+        $query->orderBy($sortBy, $sortOrder);
+    }
+
+    $posts = $query->paginate($request->get('per_page', 10));
+
+    $user = auth()->user();
+    $posts->getCollection()->transform(function($post) use ($user) {
+        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        $post->is_edited = $post->post_edit_histories_count > 0;
+        $post->user_has_liked = $user
+            ? $post->likes()->where('user_id', $user->id)->exists()
+            : false;
+        $post->user_has_bookmarked = $user
+            ? $post->bookmarks()->where('user_id', $user->id)->exists()
+            : false;
+        return $post;
+    });
+
+    if ($sortBy === 'votes_count') {
+        $sorted = $sortOrder === 'asc'
+            ? $posts->getCollection()->sortBy('votes_count')
+            : $posts->getCollection()->sortByDesc('votes_count');
+        $posts->setCollection($sorted->values());
+    }
+
+    return response()->json($posts);
+}
+
+/**
+ * Get posts by tag slug
+ */
+public function getByTag(Request $request, string $tagSlug)
+{
+    $tag = Tag::where('slug', $tagSlug)->first();
+
+    if (!$tag) {
+        return response()->json(['message' => 'Tag not found'], 404);
+    }
+
+    $sortBy = $request->get('sort_by', 'view_count');
+    $sortOrder = $request->get('sort_order', 'desc');
+
+    $allowedSortFields = [
+        'created_at', 'title', 'updated_at', 'view_count',
+        'votes_count', 'likes_count', 'bookmarks_count', 'comments_count'
+    ];
+
+    if (!in_array($sortBy, $allowedSortFields)) {
+        $sortBy = 'view_count';
+    }
+
+    $query = Post::with(['tags', 'category', 'user'])
+        ->where('status', '!=', 'deleted')
+        ->whereHas('tags', fn($q) => $q->where('tags.id', $tag->id))
+        ->withCount([
+            'likes',
+            'bookmarks',
+            'comments',
+            'post_edit_histories',
+            'votes as upvotes_count' => fn($q) => $q->where('vote_type', 'upvote'),
+            'votes as downvotes_count' => fn($q) => $q->where('vote_type', 'downvote'),
+        ]);
+
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('title', 'LIKE', "%{$search}%")
+              ->orWhere('body', 'LIKE', "%{$search}%");
+        });
+    }
+
+    if ($sortBy === 'view_count') {
+        $query->orderBy('view_count', 'desc')->orderBy('created_at', 'desc');
+    } elseif ($sortBy !== 'votes_count') {
+        $query->orderBy($sortBy, $sortOrder);
+    }
+
+    $posts = $query->paginate($request->get('per_page', 10));
+
+    $user = auth()->user();
+    $posts->getCollection()->transform(function($post) use ($user) {
+        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
+        $post->is_edited = $post->post_edit_histories_count > 0;
+        $post->user_has_liked = $user
+            ? $post->likes()->where('user_id', $user->id)->exists()
+            : false;
+        $post->user_has_bookmarked = $user
+            ? $post->bookmarks()->where('user_id', $user->id)->exists()
+            : false;
+        return $post;
+    });
+
+    if ($sortBy === 'votes_count') {
+        $sorted = $sortOrder === 'asc'
+            ? $posts->getCollection()->sortBy('votes_count')
+            : $posts->getCollection()->sortByDesc('votes_count');
+        $posts->setCollection($sorted->values());
+    }
+
+    return response()->json($posts);
+}
 
     /**
      * Accept a comment as the answer for a post.

@@ -118,3 +118,7 @@ Route::middleware(['auth:api', IsAdminMiddleware::class])->group(function () {
 
 
 
+Route::get('/posts/category/{categorySlug}', [PostController::class, 'getByCategory']);
+Route::get('/posts/tag/{tagSlug}',           [PostController::class, 'getByTag']);
+
+
