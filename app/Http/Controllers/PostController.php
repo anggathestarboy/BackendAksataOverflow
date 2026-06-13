@@ -106,6 +106,7 @@ public function index(Request $request)
     $posts->getCollection()->transform(function($post) use ($user) {
         $post->votes_count = $post->upvotes_count - $post->downvotes_count;
         $post->is_edited = $post->post_edit_histories_count > 0;
+        $post->votes_count = $post->upvotes_count - $post->downvotes_count;
         $post->user_has_liked = $user
             ? $post->likes()->where('user_id', $user->id)->exists()
             : false;
