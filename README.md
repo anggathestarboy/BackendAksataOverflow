@@ -11,7 +11,7 @@ This project is developed using the Laravel framework with the goal of providing
 Clone the repository to your local environment:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/anggathestarboy/AksataOverflow
 cd AksataOverflow
 ```
 
